@@ -1,39 +1,39 @@
-name: 'Java Test, Package & JRE Action'
-description: 'Downloads a workspace, runs tests, packages the app, and creates a custom JRE.'
+name: "Java Test, Package & JRE Action"
+description: "Downloads a workspace, runs tests, packages the app, and creates a custom JRE."
 
 inputs:
   java-version:
-    description: 'JDK version.'
+    description: "JDK version."
     required: false
-    default: '25'
+    default: "25"
   distribution:
-    description: 'JDK distribution (e.g., temurin, corretto).'
+    description: "JDK distribution (e.g., temurin, corretto)."
     required: false
-    default: 'corretto'
+    default: "corretto"
   working-directory:
-    description: 'Directory of the pom.xml, for monorepos.'
+    description: "Directory of the pom.xml, for monorepos."
     required: false
-    default: 'backend'
+    default: "backend"
   maven-test-args:
-    description: 'Extra arguments for the Maven test command.'
+    description: "Extra arguments for the Maven test command."
     required: false
-    default: ''
+    default: ""
   maven-package-args:
-    description: 'Extra arguments for the Maven package command.'
+    description: "Extra arguments for the Maven package command."
     required: false
-    default: ''
+    default: ""
   workspace-artifact-name:
-    description: 'Name of the workspace artifact to download.'
+    description: "Name of the workspace artifact to download."
     required: false
-    default: 'workspace'
+    default: "workspace"
   jar-artifact-name:
-    description: 'Name for the final uploaded JAR artifact.'
+    description: "Name for the final uploaded JAR artifact."
     required: false
-    default: 'java-app-jar'
+    default: "java-app-jar"
   jre-artifact-name:
-    description: 'Name for the final uploaded JRE artifact.'
+    description: "Name for the final uploaded JRE artifact."
     required: false
-    default: 'custom-jre'
+    default: "custom-jre"
 
 runs:
   using: "composite"
@@ -43,7 +43,7 @@ runs:
       with:
         java-version: ${{ inputs.java-version }}
         distribution: ${{ inputs.distribution }}
-        cache: 'maven'
+        cache: "maven"
         cache-dependency-path: ${{ inputs.working-directory }}/pom.xml
 
     - name: Download Workspace
@@ -97,21 +97,15 @@ runs:
           --no-header-files \
           --compress=2 \
           --output custom-jre
-    
-    - name: Set Execute Permissions on JRE Binaries
-      shell: bash
-      working-directory: ${{ inputs.working-directory }}
-      run: chmod +x custom-jre/bin/*
 
     - name: Upload Custom JRE Artifact
       uses: actions/upload-artifact@v4
       with:
         name: ${{ inputs.jre-artifact-name }}
         path: ${{ inputs.working-directory }}/custom-jre
-    
+
     - name: Upload JAR Artifact
       uses: actions/upload-artifact@v4
       with:
         name: ${{ inputs.jar-artifact-name }}
         path: ${{ inputs.working-directory }}/target/app.jar
-

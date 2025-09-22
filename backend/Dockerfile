@@ -12,7 +12,7 @@ COPY --chown=tekmetric:tekmetric target/app.jar app.jar
 # Configure the environment to use the custom JRE
 ENV JAVA_HOME=/opt/jre
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
-
+RUN chmod +x /opt/jre/bin/*
 # Switch to the non-root user
 USER tekmetric
 
