@@ -28,19 +28,18 @@ jobs:
           working-directory: 'backend'
 
   test:
-    name: Test, Package & Create JRE
+    name: Test & Package Application
     runs-on: ubuntu-latest
     needs: build
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Test, Package & Create Custom JRE
+      - name: Test & Package 
         uses: ./.github/actions/java-test
         with:
           working-directory: 'backend'
           jar-artifact-name: 'java-app-jar'
-          jre-artifact-name: 'custom-jre'
 
   docker-build:
     name: Build Docker Image
@@ -69,7 +68,6 @@ jobs:
           push-image: ${{ github.ref == 'refs/heads/master' }}
           working-directory: 'backend'
           jar-artifact-name: 'java-app-jar'
-          jre-artifact-name: 'custom-jre'
 
       - name: Add Image URL to Job Summary
         # See more: https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary

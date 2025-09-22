@@ -10,10 +10,6 @@ inputs:
     description: 'Name of the application JAR artifact to download.'
     required: false
     default: 'java-app-jar'
-  jre-artifact-name:
-    description: 'Name of the custom JRE artifact to download.'
-    required: false
-    default: 'custom-jre'
   registry:
     description: 'Server address of the container registry.'
     required: true
@@ -50,12 +46,6 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Download Custom JRE
-      uses: actions/download-artifact@v4
-      with:
-        name: ${{ inputs.jre-artifact-name }}
-        path: ${{ inputs.working-directory }}/custom-jre
-
     - name: Download Application JAR
       uses: actions/download-artifact@v4
       with:
