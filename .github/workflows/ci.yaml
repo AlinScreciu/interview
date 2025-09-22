@@ -1,0 +1,64 @@
+# Name of the workflow, which will be displayed in the GitHub Actions tab.
+name: Tekmetric Backend CI
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+  # Allows you to run this workflow manually from the Actions tab.
+  # see more: https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
+  workflow_dispatch:
+
+# ---===[ CONCURRENCY ]===---
+# Ensures that only one workflow run is in progress for a specific PR or branch.
+# If a new commit is pushed, it cancels the previous run for the same context.
+# see more: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#concurrency
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & Unit Test
+    runs-on: self-hosted
+    # Set the default working directory for all 'run' steps in this job.
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: "corretto"
+          java-version: "25"
+          cache: "maven"
+          cache-dependency-path: "backend/pom.xml"
+
+      - name: Build with Maven
+        run: mvn -B package --file pom.xml
+
+      - name: Upload JAR Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-app-jar
+          path: backend/target/*.jar
+          retention-days: 5 # Keep artifacts for 5 days
+
+  code-quality:
+    name: Code Quality Analysis
+    runs-on: self-hosted
+    # 'needs: build' ensures this job only runs after the 'build' job has successfully completed.
+    needs: build
+    steps:
+      # Code quality tools need access to the source code.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: "TODO: Download artifacts and run SonarCloud/etc."
+        working-directory: ./backend
+        run: echo "This job will download artifacts and perform code quality checks on the 'backend' source."
