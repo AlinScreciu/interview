@@ -1,5 +1,5 @@
 name: 'Java Build Action'
-description: 'Compiles a Java application and uploads the workspace.'
+description: 'Checks out, compiles a Java application, and uploads the workspace.'
 
 inputs:
   java-version:
@@ -13,7 +13,7 @@ inputs:
   working-directory:
     description: 'Directory of the pom.xml, for monorepos.'
     required: false
-    default: 'backend'
+    default: '.'
   maven-args:
     description: 'Extra arguments for the Maven command.'
     required: false
@@ -36,7 +36,6 @@ runs:
         java-version: ${{ inputs.java-version }}
         distribution: ${{ inputs.distribution }}
         cache: 'maven'
-        # See more: https://github.com/actions/setup-java
         cache-dependency-path: ${{ inputs.working-directory }}/pom.xml
 
     - name: Compile with Maven
@@ -50,4 +49,3 @@ runs:
         name: ${{ inputs.artifact-name }}
         path: .
         retention-days: ${{ inputs.artifact-retention-days }}
-

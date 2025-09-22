@@ -1,5 +1,5 @@
-name: 'Java Test and Package Action'
-description: 'Downloads a workspace, runs tests, and packages the application.'
+name: 'Java Test, Package & JRE Action'
+description: 'Downloads a workspace, runs tests, packages the app, and creates a custom JRE.'
 
 inputs:
   java-version:
@@ -14,14 +14,6 @@ inputs:
     description: 'Directory of the pom.xml, for monorepos.'
     required: false
     default: 'backend'
-  maven-test-args:
-    description: 'Extra arguments for the Maven test command.'
-    required: false
-    default: ''
-  maven-package-args:
-    description: 'Extra arguments for the Maven package command.'
-    required: false
-    default: ''
   workspace-artifact-name:
     description: 'Name of the workspace artifact to download.'
     required: false
@@ -30,15 +22,19 @@ inputs:
     description: 'Name for the final uploaded JAR artifact.'
     required: false
     default: 'java-app-jar'
-  jar-artifact-retention-days:
-    description: 'How long to retain the JAR artifact.'
+  jre-artifact-name:
+    description: 'Name for the custom JRE artifact.'
+    required: false
+    default: 'custom-jre'
+  artifact-retention-days:
+    description: 'How long to retain the JAR and JRE artifacts.'
     required: false
     default: 5
 
 outputs:
   jar-path:
     description: "Path to the packaged JAR file."
-    value: ${{ steps.determine-jar-path.outputs.path }}
+    value: ${{ inputs.working-directory }}/target/app.jar
 
 runs:
   using: "composite"
@@ -49,7 +45,6 @@ runs:
         java-version: ${{ inputs.java-version }}
         distribution: ${{ inputs.distribution }}
         cache: 'maven'
-        # See more: https://github.com/actions/setup-java
         cache-dependency-path: ${{ inputs.working-directory }}/pom.xml
 
     - name: Download Workspace
@@ -61,26 +56,44 @@ runs:
     - name: Run Tests with Maven
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: mvn -B test ${{ inputs.maven-test-args }}
+      run: mvn -B test
 
     - name: Package Application
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: mvn -B package -DskipTests ${{ inputs.maven-package-args }}
+      run: mvn -B package -DskipTests
 
-    - name: Determine JAR path from pom.xml
+    - name: Determine JAR path and rename
       id: determine-jar-path
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
         FINAL_NAME=$(mvn help:evaluate -Dexpression=project.build.finalName -q -DforceStdout)
-        JAR_PATH="${{ inputs.working-directory }}/target/${FINAL_NAME}.jar"
-        echo "path=${JAR_PATH}" >> $GITHUB_OUTPUT
+        # Rename the JAR to a consistent name for the Docker build
+        mv "target/${FINAL_NAME}.jar" "target/app.jar"
+
+    - name: Analyze Application Dependencies with jdeps
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      # The analysis now runs on the consistently named app.jar
+      run: jdeps --ignore-missing-deps --print-module-deps target/app.jar > jre-deps.info
+
+    - name: Build Custom JRE with jlink
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: jlink --add-modules $(cat jre-deps.info) --strip-debug --no-man-pages --no-header-files --compress=2 --output custom-jre
 
     - name: Upload JAR Artifact
       uses: actions/upload-artifact@v4
       with:
         name: ${{ inputs.jar-artifact-name }}
-        path: ${{ steps.determine-jar-path.outputs.path }}
-        retention-days: ${{ inputs.jar-artifact-retention-days }}
+        path: ${{ inputs.working-directory }}/target/app.jar
+        retention-days: ${{ inputs.artifact-retention-days }}
+
+    - name: Upload Custom JRE Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.jre-artifact-name }}
+        path: ${{ inputs.working-directory }}/custom-jre/
+        retention-days: ${{ inputs.artifact-retention-days }}
 

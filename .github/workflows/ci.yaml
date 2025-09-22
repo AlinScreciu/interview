@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build:
     name: Build Application
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,23 +28,57 @@ jobs:
           working-directory: 'backend'
 
   test:
-    name: Test and Package Application
-    runs-on: self-hosted
+    name: Test, Package & Create JRE
+    runs-on: ubuntu-latest
     needs: build
     steps:
-      - name: Test and Package
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test, Package & Create Custom JRE
         uses: ./.github/actions/java-test
         with:
           working-directory: 'backend'
+          jar-artifact-name: 'java-app-jar'
+          jre-artifact-name: 'custom-jre'
+
+  docker-build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build and Push Docker Image
+        uses: ./.github/actions/docker-build
+        with:
+          registry: ghcr.io
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
+          image-name: ${{ github.repository_owner }}/tekmetric-backend
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
+          platforms: linux/amd64,linux/arm64
+          # Only push the image when the workflow runs on the master branch
+          push-image: ${{ github.ref == 'refs/heads/master' }}
+          working-directory: 'backend'
+          jar-artifact-name: 'java-app-jar'
+          jre-artifact-name: 'custom-jre'
 
   code-quality:
     name: Code Quality Analysis
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: test
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: "TODO: Download artifacts and run SonarCloud/etc."
+        working-directory: ./backend
         run: echo "This job will perform code quality checks on the source code."
 
