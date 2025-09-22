@@ -39,6 +39,14 @@ inputs:
     required: false
     default: 'false'
 
+outputs:
+  tags:
+    description: "The generated Docker image tags."
+    value: ${{ steps.meta.outputs.tags }}
+  labels:
+    description: "The generated Docker image labels."
+    value: ${{ steps.meta.outputs.labels }}
+
 runs:
   using: "composite"
   steps:
