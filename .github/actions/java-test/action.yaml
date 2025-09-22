@@ -1,0 +1,86 @@
+name: 'Java Test and Package Action'
+description: 'Downloads a workspace, runs tests, and packages the application.'
+
+inputs:
+  java-version:
+    description: 'JDK version.'
+    required: false
+    default: '25'
+  distribution:
+    description: 'JDK distribution (e.g., temurin, corretto).'
+    required: false
+    default: 'corretto'
+  working-directory:
+    description: 'Directory of the pom.xml, for monorepos.'
+    required: false
+    default: 'backend'
+  maven-test-args:
+    description: 'Extra arguments for the Maven test command.'
+    required: false
+    default: ''
+  maven-package-args:
+    description: 'Extra arguments for the Maven package command.'
+    required: false
+    default: ''
+  workspace-artifact-name:
+    description: 'Name of the workspace artifact to download.'
+    required: false
+    default: 'workspace'
+  jar-artifact-name:
+    description: 'Name for the final uploaded JAR artifact.'
+    required: false
+    default: 'java-app-jar'
+  jar-artifact-retention-days:
+    description: 'How long to retain the JAR artifact.'
+    required: false
+    default: 5
+
+outputs:
+  jar-path:
+    description: "Path to the packaged JAR file."
+    value: ${{ steps.determine-jar-path.outputs.path }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up JDK with Maven caching
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ inputs.java-version }}
+        distribution: ${{ inputs.distribution }}
+        cache: 'maven'
+        # See more: https://github.com/actions/setup-java
+        cache-dependency-path: ${{ inputs.working-directory }}/pom.xml
+
+    - name: Download Workspace
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ inputs.workspace-artifact-name }}
+        path: .
+
+    - name: Run Tests with Maven
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: mvn -B test ${{ inputs.maven-test-args }}
+
+    - name: Package Application
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: mvn -B package -DskipTests ${{ inputs.maven-package-args }}
+
+    - name: Determine JAR path from pom.xml
+      id: determine-jar-path
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        FINAL_NAME=$(mvn help:evaluate -Dexpression=project.build.finalName -q -DforceStdout)
+        JAR_PATH="${{ inputs.working-directory }}/target/${FINAL_NAME}.jar"
+        echo "path=${JAR_PATH}" >> $GITHUB_OUTPUT
+
+    - name: Upload JAR Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.jar-artifact-name }}
+        path: ${{ steps.determine-jar-path.outputs.path }}
+        retention-days: ${{ inputs.jar-artifact-retention-days }}
+
