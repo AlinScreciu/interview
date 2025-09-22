@@ -13,6 +13,7 @@ COPY --chown=tekmetric:tekmetric target/app.jar app.jar
 ENV JAVA_HOME=/opt/jre
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 RUN chmod +x /opt/jre/bin/*
+RUN apk add libc6-compat
 # Switch to the non-root user
 USER tekmetric
 
