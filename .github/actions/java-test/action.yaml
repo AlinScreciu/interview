@@ -1,5 +1,5 @@
 name: 'Java Test & Package Action'
-description: 'Downloads a workspace, runs tests, and packages the application with a semantic version.'
+description: 'Downloads a workspace, runs tests, and packages the application.'
 
 inputs:
   java-version:
@@ -14,14 +14,6 @@ inputs:
     description: 'Directory of the pom.xml, for monorepos.'
     required: false
     default: 'backend'
-  maven-test-args:
-    description: 'Extra arguments for the Maven test command.'
-    required: false
-    default: ''
-  maven-package-args:
-    description: 'Extra arguments for the Maven package command.'
-    required: false
-    default: ''
   workspace-artifact-name:
     description: 'Name of the workspace artifact to download.'
     required: false
@@ -33,7 +25,7 @@ inputs:
 
 outputs:
   app-version:
-    description: "The generated semantic version for the application."
+    description: "The generated semantic version of the application."
     value: ${{ steps.generate-version.outputs.version }}
 
 runs:
@@ -53,34 +45,45 @@ runs:
         name: ${{ inputs.workspace-artifact-name }}
         path: .
 
-    - name: Run Tests with Maven
-      shell: bash
-      working-directory: ${{ inputs.working-directory }}
-      run: mvn -B test ${{ inputs.maven-test-args }}
-
     - name: Get base version from pom.xml
       id: get-version
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: echo "base_version=$(mvn help:evaluate -Dexpression=project.base.version -q -DforceStdout)" >> $GITHUB_OUTPUT
+      run: |
+        BASE_VERSION=$(mvn help:evaluate -Dexpression=project.base.version -q -DforceStdout)
+        echo "base_version=${BASE_VERSION}" >> $GITHUB_OUTPUT
+        echo "Base version from pom: ${BASE_VERSION}"
 
     - name: Generate Semantic Version
       id: generate-version
       shell: bash
       run: |
-        VERSION="${{ steps.get-version.outputs.base_version }}.${{ github.run_number }}-$(date +'%Y%m%d').${GITHUB_SHA::7}"
+        BASE_VERSION="${{ steps.get-version.outputs.base_version }}"
+        VERSION_METADATA="${{ github.run_number }}-$(date +'%Y%m%d').${GITHUB_SHA::7}"
+        
+        # Check if the current branch is 'master' to determine the version format.
+        # See more: https://docs.github.com/en/actions/learn-github-actions/contexts#github-context
+        if [[ "${{ github.ref_name }}" == "master" ]]; then
+          VERSION="${BASE_VERSION}.${VERSION_METADATA}"
+        else
+          VERSION="${BASE_VERSION}.${VERSION_METADATA}-SNAPSHOT"
+        fi
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
         echo "Generated version: ${VERSION}"
 
-    - name: Package Application with new version
+    - name: Run Tests with Maven
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: mvn -B package -DskipTests -Drevision=${{ steps.generate-version.outputs.version }} ${{ inputs.maven-package-args }}
+      run: mvn -B -Drevision=${{ steps.generate-version.outputs.version }} test
+
+    - name: Package Application
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: mvn -B -Drevision=${{ steps.generate-version.outputs.version }} package -DskipTests
 
     - name: Rename JAR for consistency
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      # Use the dynamically generated version to find and rename the correct JAR file.
       run: mv target/interview-${{ steps.generate-version.outputs.version }}.jar target/app.jar
 
     - name: Upload JAR Artifact
