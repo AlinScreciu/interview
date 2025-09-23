@@ -1,32 +1,43 @@
-name: "Java Test & Package Action"
-description: "Downloads a workspace, runs tests, and packages the application."
+name: 'Java Test & Package Action'
+description: 'Downloads a workspace, runs tests, and packages the application.'
 
 inputs:
   java-version:
-    description: "JDK version."
+    description: 'JDK version.'
     required: false
-    default: "25"
+    default: '25'
   distribution:
-    description: "JDK distribution (e.g., temurin, corretto)."
+    description: 'JDK distribution (e.g., temurin, corretto).'
     required: false
-    default: "corretto"
+    default: 'corretto'
   working-directory:
-    description: "Directory of the pom.xml, for monorepos."
+    description: 'Directory of the pom.xml, for monorepos.'
     required: false
-    default: "backend"
+    default: 'backend'
+  maven-test-args:
+    description: 'Extra arguments for the Maven test command.'
+    required: false
+    default: ''
+  maven-package-args:
+    description: 'Extra arguments for the Maven package command.'
+    required: false
+    default: ''
   workspace-artifact-name:
-    description: "Name of the workspace artifact to download."
+    description: 'Name of the workspace artifact to download.'
     required: false
-    default: "workspace"
+    default: 'workspace'
   jar-artifact-name:
-    description: "Name for the final uploaded JAR artifact."
+    description: 'Name for the final uploaded JAR artifact.'
     required: false
-    default: "java-app-jar"
+    default: 'java-app-jar'
 
 outputs:
-  app-version:
-    description: "The generated semantic version of the application."
+  version:
+    description: "The full semantic version of the application (e.g., 1.0.1-SNAPSHOT+20250923.abc1234)."
     value: ${{ steps.generate-version.outputs.version }}
+  docker_tag:
+    description: "The sanitized version string suitable for a Docker tag (e.g., 1.0.1-SNAPSHOT-20250923.abc1234)."
+    value: ${{ steps.generate-version.outputs.docker_tag }}
 
 runs:
   using: "composite"
@@ -36,7 +47,7 @@ runs:
       with:
         java-version: ${{ inputs.java-version }}
         distribution: ${{ inputs.distribution }}
-        cache: "maven"
+        cache: 'maven'
         cache-dependency-path: ${{ inputs.working-directory }}/pom.xml
 
     - name: Download Workspace
@@ -45,48 +56,42 @@ runs:
         name: ${{ inputs.workspace-artifact-name }}
         path: .
 
-    - name: Get base version from pom.xml
-      id: get-version
-      shell: bash
-      working-directory: ${{ inputs.working-directory }}
-      run: |
-        BASE_VERSION=$(mvn help:evaluate -Dexpression=project.base.version -q -DforceStdout)
-        echo "base_version=${BASE_VERSION}" >> $GITHUB_OUTPUT
-        echo "Base version from pom: ${BASE_VERSION}"
-
     - name: Generate Semantic Version
       id: generate-version
       shell: bash
       run: |
-        # Assumes BASE_VERSION from pom.xml is like "1.0"
-        # We will use the GitHub run number as the PATCH version.
-        BASE_VERSION="${{ steps.get-version.outputs.base_version }}"
+        BASE_VERSION=$(mvn help:evaluate -Dexpression=project.base.version -q -DforceStdout)
         PATCH_VERSION="${{ github.run_number }}"
-
-        # Build metadata should contain the date and commit SHA
         BUILD_METADATA="$(date +'%Y%m%d').${GITHUB_SHA::7}"
 
-        # For non-master branches, create a pre-release version
+        # Build the proper SemVer string with '+' for build metadata
         if [[ "${{ github.ref_name }}" != "master" ]]; then
-          # ✅ Example: 1.0.32-SNAPSHOT+20250923.1dd30d4
+          # e.g., 1.0.123-SNAPSHOT+20250923.a1b2c3d
           VERSION="${BASE_VERSION}.${PATCH_VERSION}-SNAPSHOT+${BUILD_METADATA}"
         else
-          # ✅ Example for master: 1.0.32+20250923.1dd30d4
+          # e.g., 1.0.123+20250923.a1b2c3d
           VERSION="${BASE_VERSION}.${PATCH_VERSION}+${BUILD_METADATA}"
         fi
 
+        # Create a sanitized version for Docker tags by replacing '+' with '-'
+        # e.g., 1.0.123-SNAPSHOT-20250923.a1b2c3d
+        DOCKER_TAG=$(echo "${VERSION}" | tr '+' '-')
+
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
-        echo "Generated version: ${VERSION}"
-        
+        echo "docker_tag=${DOCKER_TAG}" >> $GITHUB_OUTPUT
+
+        echo "Generated SemVer version: ${VERSION}"
+        echo "Sanitized Docker tag: ${DOCKER_TAG}"
+
     - name: Run Tests with Maven
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: mvn -B -Drevision=${{ steps.generate-version.outputs.version }} test
+      run: mvn -B test -Drevision=${{ steps.generate-version.outputs.version }} ${{ inputs.maven-test-args }}
 
     - name: Package Application
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: mvn -B -Drevision=${{ steps.generate-version.outputs.version }} package -DskipTests
+      run: mvn -B package -DskipTests -Drevision=${{ steps.generate-version.outputs.version }} ${{ inputs.maven-package-args }}
 
     - name: Rename JAR for consistency
       shell: bash
@@ -98,3 +103,4 @@ runs:
       with:
         name: ${{ inputs.jar-artifact-name }}
         path: ${{ inputs.working-directory }}/target/app.jar
+

@@ -9,7 +9,6 @@ on:
   workflow_dispatch:
 
 # Ensures that only one workflow run is in progress for a specific PR or branch.
-# See more: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#concurrency
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
@@ -32,7 +31,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     outputs:
-      version: ${{ steps.test_package.outputs.app-version }}
+      version: ${{ steps.test_package.outputs.version }}
+      docker_tag: ${{ steps.test_package.outputs.docker_tag }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -48,8 +48,6 @@ jobs:
     name: Build Docker Image
     runs-on: ubuntu-latest
     needs: test
-    outputs:
-      image-name: ${{ steps.repo-owner.outputs.name }}/tekmetric-backend
     permissions:
       contents: read
       packages: write
@@ -69,14 +67,14 @@ jobs:
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.GITHUB_TOKEN }}
           image-name: ${{ steps.repo-owner.outputs.name }}/tekmetric-backend
-          app-version: ${{ needs.test.outputs.version }}
+          app-version: ${{ needs.test.outputs.docker_tag }} # Use the sanitized Docker tag
           platforms: linux/amd64,linux/arm64
           push-image: true
           working-directory: "backend"
           jar-artifact-name: "java-app-jar"
 
       - name: Add Image URL to Job Summary
-        # See more: https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary
+        if: github.ref_name == 'master'
         run: |
           echo "### Docker Image Published" >> $GITHUB_STEP_SUMMARY
           echo "The following image tags were pushed to the registry:" >> $GITHUB_STEP_SUMMARY
@@ -99,9 +97,7 @@ jobs:
       - name: Scan Docker Image
         uses: ./.github/actions/scan-image
         with:
-          image-ref: "ghcr.io/${{ needs.docker-build.outputs.image-name }}:${{ needs.test.outputs.version }}"
-          registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.GITHUB_TOKEN }}
+          image-ref: "ghcr.io/${{ github.repository_owner }}/${{ needs.docker-build.outputs.image-name }}:${{ needs.test.outputs.docker_tag }}"
 
   code-quality:
     name: Code Quality Analysis
@@ -118,7 +114,8 @@ jobs:
   publish-chart:
     name: Publish Helm Chart
     runs-on: self-hosted # As requested for local ChartMuseum
-    needs: [scan-image] # Run after the scan passes
+    needs: [scan-image, test]
+    if: github.ref_name == 'master' # Only publish on master branch
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -127,7 +124,7 @@ jobs:
         uses: ./.github/actions/publish-chart
         with:
           chart-path: "./backend/src/main/helm/backend-service-chart"
-          chart-version: ${{ needs.test.outputs.version }}
-          app-version: ${{ needs.test.outputs.version }}
           chartmuseum-url: "http://localhost:9090"
+          app-version: ${{ needs.test.outputs.version }} # Use the full SemVer string
           force: "false"
+
