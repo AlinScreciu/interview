@@ -48,6 +48,8 @@ jobs:
     name: Build Docker Image
     runs-on: ubuntu-latest
     needs: test
+    outputs:
+      image_name: ${{ steps.repo-owner.outputs.name }}/tekmetric-backend
     permissions:
       contents: read
       packages: write
@@ -67,9 +69,9 @@ jobs:
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.GITHUB_TOKEN }}
           image-name: ${{ steps.repo-owner.outputs.name }}/tekmetric-backend
-          app-version: ${{ needs.test.outputs.docker_tag }} # Use the sanitized Docker tag
+          app-version: ${{ needs.test.outputs.docker_tag }}
           platforms: linux/amd64,linux/arm64
-          push-image: true
+          push-image: ${{ github.ref_name == 'master' }}
           working-directory: "backend"
           jar-artifact-name: "java-app-jar"
 
@@ -97,7 +99,7 @@ jobs:
       - name: Scan Docker Image
         uses: ./.github/actions/scan-image
         with:
-          image-ref: "ghcr.io/${{ github.repository_owner }}/${{ needs.docker-build.outputs.image-name }}:${{ needs.test.outputs.docker_tag }}"
+          image-ref: "ghcr.io/${{ needs.docker-build.outputs.image_name }}:${{ needs.test.outputs.docker_tag }}"
 
   code-quality:
     name: Code Quality Analysis
