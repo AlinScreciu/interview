@@ -1,15 +1,15 @@
-name: 'Publish Helm Chart Action'
-description: 'Packages and publishes a Helm chart to ChartMuseum.'
+name: "Publish Helm Chart Action"
+description: "Packages and publishes a Helm chart to ChartMuseum."
 
 inputs:
   chart-path:
-    description: 'The path to the Helm chart directory.'
+    description: "The path to the Helm chart directory."
     required: true
   chartmuseum-url:
-    description: 'The URL of the ChartMuseum instance.'
+    description: "The URL of the ChartMuseum instance."
     required: true
   app-version:
-    description: 'The full semantic version of the application (e.g., 1.0.1+20250923.abc).'
+    description: "The full semantic version of the application (e.g., 1.0.1+20250923.abc)."
     required: true
 
 runs:
@@ -19,7 +19,7 @@ runs:
       # This action installs a specific version of Helm into the runner environment.
       uses: azure/setup-helm@v4
       with:
-        version: 'v3.13.0'
+        version: "v3.13.0"
 
     - name: Install helm-push plugin
       shell: bash
@@ -43,7 +43,7 @@ runs:
           echo "::error::Input 'app-version' is empty. A valid version is required."
           exit 1
         fi
-        
+
         # The Helm chart 'version' field must be a valid SemVer string and cannot contain
         # build metadata (+). We derive a clean version for the chart package by stripping
         # the metadata, while using the full string for the appVersion field inside the chart.
@@ -65,11 +65,10 @@ runs:
         # Reliably determine the packaged chart's filename for the next step.
         CHART_NAME=$(helm show chart ${{ inputs.chart-path }} | grep '^name:' | awk '{print $2}')
         PACKAGE_FILE="${CHART_NAME}-${{ steps.versions.outputs.chart_version }}.tgz"
-        
+
         echo "packaged_chart=${PACKAGE_FILE}" >> $GITHUB_OUTPUT
         echo "Packaged chart to ${PACKAGE_FILE}"
 
     - name: Push chart using helm-push
       shell: bash
       run: helm cm-push ${{ steps.package_chart.outputs.packaged_chart }} ${{ inputs.chartmuseum-url }}
-
