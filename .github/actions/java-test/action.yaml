@@ -33,10 +33,10 @@ inputs:
 
 outputs:
   version:
-    description: "The full semantic version of the application (e.g., 1.0.1-SNAPSHOT+20250923.abc1234)."
+    description: "The full semantic version of the application (e.g., 1.0.1+20250923.abc)."
     value: ${{ steps.generate-version.outputs.version }}
   docker_tag:
-    description: "The sanitized version string suitable for a Docker tag (e.g., 1.0.1-SNAPSHOT-20250923.abc1234)."
+    description: "The sanitized version string suitable for a Docker tag (e.g., 1.0.1-20250923.abc)."
     value: ${{ steps.generate-version.outputs.docker_tag }}
 
 runs:
@@ -59,6 +59,7 @@ runs:
     - name: Generate Semantic Version
       id: generate-version
       shell: bash
+      working-directory: ${{ inputs.working-directory }}
       run: |
         BASE_VERSION=$(mvn help:evaluate -Dexpression=project.base.version -q -DforceStdout)
         PATCH_VERSION="${{ github.run_number }}"
@@ -74,7 +75,6 @@ runs:
         fi
 
         # Create a sanitized version for Docker tags by replacing '+' with '-'
-        # e.g., 1.0.123-SNAPSHOT-20250923.a1b2c3d
         DOCKER_TAG=$(echo "${VERSION}" | tr '+' '-')
 
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
@@ -86,12 +86,12 @@ runs:
     - name: Run Tests with Maven
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: mvn -B test -Drevision=${{ steps.generate-version.outputs.version }} ${{ inputs.maven-test-args }}
+      run: mvn -B test -Drevision="${{ steps.generate-version.outputs.version }}" ${{ inputs.maven-test-args }}
 
     - name: Package Application
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: mvn -B package -DskipTests -Drevision=${{ steps.generate-version.outputs.version }} ${{ inputs.maven-package-args }}
+      run: mvn -B package -DskipTests -Drevision="${{ steps.generate-version.outputs.version }}" ${{ inputs.maven-package-args }}
 
     - name: Rename JAR for consistency
       shell: bash
