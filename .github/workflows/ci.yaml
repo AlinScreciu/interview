@@ -71,8 +71,7 @@ jobs:
           image-name: ${{ steps.repo-owner.outputs.name }}/tekmetric-backend
           app-version: ${{ needs.test.outputs.version }}
           platforms: linux/amd64,linux/arm64
-          # Only push the image when the workflow runs on the master branch
-          push-image: ${{ github.ref_name == 'master' }}
+          push-image: true
           working-directory: 'backend'
           jar-artifact-name: 'java-app-jar'
 
