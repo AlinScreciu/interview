@@ -1,5 +1,5 @@
 name: 'Java Test & Package Action'
-description: 'Downloads a workspace, runs tests, packages the application, and sets the version.'
+description: 'Downloads a workspace, runs tests, and packages the application with a semantic version.'
 
 inputs:
   java-version:
@@ -33,8 +33,8 @@ inputs:
 
 outputs:
   app-version:
-    description: "The generated application version."
-    value: ${{ steps.get_version.outputs.app_version }}
+    description: "The generated semantic version for the application."
+    value: ${{ steps.generate-version.outputs.version }}
 
 runs:
   using: "composite"
@@ -53,47 +53,39 @@ runs:
         name: ${{ inputs.workspace-artifact-name }}
         path: .
 
-    - name: Generate Application Version
-      id: get_version
-      shell: bash
-      working-directory: ${{ inputs.working-directory }}
-      run: |
-        BASE_VERSION=$(mvn help:evaluate -Dexpression=project.base.version -q -DforceStdout)
-        BUILD_NUMBER=${{ github.run_number }}
-        SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-        BUILD_DATE=$(date -u +'%Y%m%d')
-        # Create a SemVer compatible version: MAJOR.MINOR.PATCH-METADATA
-        APP_VERSION="${BASE_VERSION}.${BUILD_NUMBER}-${BUILD_DATE}.${SHORT_SHA}"
-        echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
-
     - name: Run Tests with Maven
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: mvn -B test -Drevision=${{ steps.get_version.outputs.app_version }} ${{ inputs.maven-test-args }}
+      run: mvn -B test ${{ inputs.maven-test-args }}
 
-    - name: Package Application
+    - name: Get base version from pom.xml
+      id: get-version
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: mvn -B package -DskipTests -Drevision=${{ steps.get_version.outputs.app_version }} ${{ inputs.maven-package-args }}
+      run: echo "base_version=$(mvn help:evaluate -Dexpression=project.base.version -q -DforceStdout)" >> $GITHUB_OUTPUT
 
-    - name: Determine JAR path from pom.xml
-      id: determine-jar-path
+    - name: Generate Semantic Version
+      id: generate-version
       shell: bash
-      working-directory: ${{ inputs.working-directory }}
       run: |
-        FINAL_NAME=$(mvn help:evaluate -Dexpression=project.build.finalName -q -DforceStdout)
-        JAR_PATH="target/${FINAL_NAME}.jar"
-        echo "path=${JAR_PATH}" >> $GITHUB_OUTPUT
+        VERSION="${{ steps.get-version.outputs.base_version }}.${{ github.run_number }}-$(date +'%Y%m%d').${GITHUB_SHA::7}"
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "Generated version: ${VERSION}"
+
+    - name: Package Application with new version
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: mvn -B package -DskipTests -Drevision=${{ steps.generate-version.outputs.version }} ${{ inputs.maven-package-args }}
 
     - name: Rename JAR for consistency
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: mv ${{ steps.determine-jar-path.outputs.path }} target/app.jar
+      # Use the dynamically generated version to find and rename the correct JAR file.
+      run: mv target/interview-${{ steps.generate-version.outputs.version }}.jar target/app.jar
 
     - name: Upload JAR Artifact
       uses: actions/upload-artifact@v4
       with:
         name: ${{ inputs.jar-artifact-name }}
         path: ${{ inputs.working-directory }}/target/app.jar
-
 

@@ -91,6 +91,9 @@ jobs:
       packages: read # to pull the image from GHCR
       security-events: write # to upload SARIF results to GitHub Security tab
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Scan Docker Image
         uses: ./.github/actions/scan-image
         with:
