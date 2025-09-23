@@ -37,19 +37,16 @@ Common labels
 helm.sh/chart: {{ include "helm.chart" . }}
 {{ include "helm.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | replace "+" "-" | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-{{- if .Values.app.namespace }}
-app.kubernetes.io/namespace: {{ .Values.app.namespace | quote }}
-{{- end }}
 {{- end }}
 
 {{/*
 Selector labels
 */}}
 {{- define "helm.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "helm.name" . }}
+app.kubernetes.io/name: {{ .Values.appName | default (include "helm.name" .) }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
