@@ -1,0 +1,222 @@
+# Default values for backend-service-chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 3 # Defaulting to 3 for better availability out of the box
+
+image:
+  repository: ghcr.io/alinscreciu/tekmetric-backend
+  pullPolicy: IfNotPresent
+  # tag is purposefully left blank to encourage overriding it via CI/CD pipelines
+  # Example: --set image.tag=1.2.3
+  tag: ""
+
+imagePullSecrets:
+  - name: ghcr-creds
+nameOverride: ""
+fullnameOverride: ""
+
+appName: "backend-service"
+
+app:
+  # -- Namespace the application serves under.
+  namespace: "api"
+  # -- The primary port the application listens on.
+  port: 8080
+  # -- The management port for the application (e.g., for Spring Boot Actuator).
+  mgrPort: 8181
+  # -- Extra ports to expose from the container.
+  # This can be used for things like a debug port.
+  extraPorts: []
+  #   - name: debug
+  #     containerPort: 5005
+  #     protocol: TCP
+
+# -- Override the container's entrypoint (command) and arguments (args).
+# This is useful for customizing runtime behavior, such as setting JVM memory options.
+# By default, the chart uses the container's built-in ENTRYPOINT.
+command: []
+  # Example for setting JVM memory:
+  # command:
+  #   - "java"
+args: []
+  # Example for setting JVM memory (to be used with the command above):
+  # args:
+  #   - "-Xms256m"
+  #   - "-Xmx512m"
+  #   - "-jar"
+  #   - "app.jar"
+
+# -- Deployment strategy
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    # Specifies the maximum number of pods that can be created over the desired number of pods.
+    maxSurge: 1
+    # Specifies the maximum number of pods that can be unavailable during the update process.
+    maxUnavailable: 0
+
+serviceAccount:
+  # -- Specifies whether a service account should be created
+  create: true
+  # -- Specifies whether to automatically mount the service account token
+  automount: true
+  # -- Annotations to add to the service account
+  annotations: {}
+  # -- The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+# -- Security context for the pod.
+# See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+podSecurityContext:
+  fsGroup: 10001
+  runAsUser: 10001
+  runAsGroup: 10001
+  runAsNonRoot: true
+
+# -- Security context for the container.
+# This is a critical security measure to prevent containers from running as root.
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  # The port the service will expose. It directs traffic to the application's main port.
+  port: 8080
+  # targetPort is purposefully not set, to default to the named 'service-port' port in the deployment.
+
+ingress:
+  enabled: false
+  className: ""
+  annotations:
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+# -- Resource requests and limits for the container.
+# It is strongly recommended to set these values in production.
+# See https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# -- Liveness probe configuration
+# See https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: service-port
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# -- Readiness probe configuration
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: service-port
+  initialDelaySeconds: 15
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# -- Horizontal Pod Autoscaler configuration
+# See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# -- Controls how pods are spread across the cluster for high availability.
+# See https://kubernetes.io/docs/concepts/workloads/controllers/pod-topology-spread-constraints/
+topologySpreadConstraints:
+  enabled: true
+  # How much the number of pods in one AZ can differ from the average.
+  maxSkew: 1
+  # When 'DoNotSchedule', pods won't be scheduled if they breach the skew.
+  whenUnsatisfiable: "DoNotSchedule"
+
+# -- Pod Disruption Budget configuration
+# This protects the application from voluntary disruptions (e.g., node maintenance).
+# See https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+podDisruptionBudget:
+  enabled: true
+  # You can specify either minAvailable or maxUnavailable. Not both.
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# -- Network Policy configuration
+# This provides network isolation for the pods, following the principle of least privilege.
+# See https://kubernetes.io/docs/concepts/services-networking/network-policies/
+networkPolicy:
+  enabled: false
+  # By default, allows ingress from pods within the same namespace with the same app name (e.g., a frontend).
+  # Also allows ingress from the ingress controller's namespace.
+  ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: {{ include "helm.name" . }}
+            app.kubernetes.io/instance: {{ .Release.Name }}
+      # Example: Allow traffic from the NGINX ingress controller
+      # - from:
+      #   - namespaceSelector:
+      #       matchLabels:
+      #         kubernetes.io/metadata.name: ingress-nginx
+      #     podSelector:
+      #       matchLabels:
+      #         app.kubernetes.io/name: ingress-nginx
+
+# -- Kubernetes Gateway API HTTPRoute configuration
+# This allows exposing the service via an existing Gateway resource.
+# This is the successor to the Ingress API.
+# See https://gateway-api.sigs.k8s.io/
+httpRoute:
+  enabled: false
+  # -- The parent Gateway resource to attach this route to.
+  # You must have a Gateway API controller and a Gateway resource already provisioned in your cluster.
+  parentRefs:
+    # - name: my-gateway
+    #   namespace: gateway-namespace
+
+  # -- A list of hostnames the HTTPRoute should match.
+  hostnames: []
+    # - "backend-service.example.com"
+
+# -- Environment variables for the container.
+# Use this for non-sensitive configuration.
+env:
+  # JAVA_OPTS: "-Xms256m -Xmx512m"
+  # SPRING_PROFILES_ACTIVE: "production"
+
+# -- Environment variables from secrets or configmaps.
+# Use this for sensitive information or larger configuration sets.
+envFrom:
+# - secretRef:
+#     name: my-secret
+# - configMapRef:
+#     name: my-configmap
+

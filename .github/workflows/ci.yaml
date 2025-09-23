@@ -31,11 +31,14 @@ jobs:
     name: Test & Package Application
     runs-on: ubuntu-latest
     needs: build
+    outputs:
+      version: ${{ steps.test_package.outputs.app-version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Test & Package 
+      - name: Test & Package
+        id: test_package
         uses: ./.github/actions/java-test
         with:
           working-directory: 'backend'
@@ -62,6 +65,7 @@ jobs:
           image-name: ${{ github.repository_owner }}/tekmetric-backend
           tags: |
             type=sha,prefix=
+            type=raw,value=${{ needs.test.outputs.version }}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
           platforms: linux/amd64,linux/arm64
           # Only push the image when the workflow runs on the master branch
@@ -78,6 +82,22 @@ jobs:
           echo "${{ steps.build_and_push.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
+  scan-image:
+    name: Scan Docker Image for Vulnerabilities
+    runs-on: ubuntu-latest
+    needs: [docker-build, test]
+    permissions:
+      contents: read # for checkout
+      packages: read # to pull the image from GHCR
+      security-events: write # to upload SARIF results to GitHub Security tab
+    steps:
+      - name: Scan Docker Image
+        uses: ./.github/actions/scan-image
+        with:
+          image-ref: 'ghcr.io/${{ github.repository_owner }}/tekmetric-backend:${{ needs.test.outputs.version }}'
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
+
   code-quality:
     name: Code Quality Analysis
     runs-on: ubuntu-latest
@@ -89,4 +109,21 @@ jobs:
       - name: "TODO: Download artifacts and run SonarCloud/etc."
         working-directory: ./backend
         run: echo "This job will perform code quality checks on the source code."
+
+  publish-chart:
+    name: Publish Helm Chart
+    runs-on: self-hosted # As requested for local ChartMuseum
+    needs: [scan-image] # Run after the scan passes
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Publish Helm Chart
+        uses: ./.github/actions/publish-chart
+        with:
+          chart-path: './backend/src/main/helm/backend-service-chart'
+          chart-version: ${{ needs.test.outputs.version }}
+          app-version: ${{ needs.test.outputs.version }}
+          chartmuseum-url: 'http://localhost:9090'
+          force: 'false'
 

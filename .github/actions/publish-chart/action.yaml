@@ -1,0 +1,32 @@
+name: 'Publish Helm Chart Action'
+description: 'Packages and pushes a Helm chart to a ChartMuseum repository.'
+
+inputs:
+  chart-path:
+    description: 'The path to the Helm chart directory.'
+    required: true
+  chart-version:
+    description: 'The version to set for the Helm chart.'
+    required: true
+  app-version:
+    description: 'The appVersion to set for the Helm chart.'
+    required: true
+  chartmuseum-url:
+    description: 'The URL of the ChartMuseum instance.'
+    required: true
+  force:
+    description: 'Whether to force push the chart if it already exists.'
+    required: false
+    default: 'false'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Publish Helm chart to ChartMuseum
+      uses: chartmuseum/helm-push-action@v0.4.1
+      with:
+        chart_path: ${{ inputs.chart-path }}
+        chart_version: ${{ inputs.chart-version }}
+        app_version: ${{ inputs.app-version }}
+        chartmuseum_url: ${{ inputs.chartmuseum-url }}
+        force: ${{ inputs.force }}
