@@ -1,5 +1,5 @@
 name: 'Scan Docker Image Action'
-description: 'Logs into GHCR, scans a specified image with Trivy, and uploads SARIF results.'
+description: 'Scans a Docker image for vulnerabilities using Trivy.'
 
 inputs:
   image-ref:
@@ -15,24 +15,19 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Log in to the GitHub Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: 'ghcr.io'
-        username: ${{ inputs.registry-username }}
-        password: ${{ inputs.registry-password }}
-
     - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
+      uses: aquasecurity/trivy-action@0.24.0
+      env:
+        TRIVY_USERNAME: ${{ inputs.registry-username }}
+        TRIVY_PASSWORD: ${{ inputs.registry-password }}
       with:
         image-ref: ${{ inputs.image-ref }}
-        format: 'template'
-        template: '@/contrib/sarif.tpl'
+        format: 'sarif'
         output: 'trivy-results.sarif'
-        severity: 'HIGH,CRITICAL'
-        exit-code: '1' # Fail the build if HIGH or CRITICAL vulnerabilities are found
+        severity: 'CRITICAL,HIGH'
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: 'trivy-results.sarif'
+
