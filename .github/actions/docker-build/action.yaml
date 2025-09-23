@@ -1,84 +1,88 @@
-name: 'Publish Helm Chart Action'
-description: 'Packages and publishes a Helm chart to ChartMuseum.'
+name: 'Docker Build & Push Action'
+description: 'Downloads artifacts, then builds and pushes a multi-platform Docker image.'
 
 inputs:
-  chart-path:
-    description: 'The path to the Helm chart directory.'
+  working-directory:
+    description: 'Directory for the build context and artifact download.'
+    required: false
+    default: 'backend'
+  jar-artifact-name:
+    description: 'Name of the application JAR artifact to download.'
+    required: false
+    default: 'java-app-jar'
+  registry:
+    description: 'Server address of the container registry.'
     required: true
-  chartmuseum-url:
-    description: 'The URL of the ChartMuseum instance.'
+  registry-username:
+    description: 'Username for the container registry.'
+    required: true
+  registry-password:
+    description: 'Password or token for the container registry.'
+    required: true
+  image-name:
+    description: 'Name of the Docker image.'
     required: true
   app-version:
-    description: 'The full semantic version of the application (e.g., 1.0.1+20250923.abc).'
+    description: 'The semantic version of the application to use for tagging.'
     required: true
-  force:
-    description: 'Force push the chart even if it exists.'
+  platforms:
+    description: 'Comma-separated list of platforms to build for.'
+    required: false
+    default: 'linux/amd64'
+  push-image:
+    description: 'Set to "true" to push the image to the registry.'
     required: false
     default: 'false'
+
+outputs:
+  tags:
+    description: "The generated Docker image tags."
+    value: ${{ steps.meta.outputs.tags }}
+  labels:
+    description: "The generated Docker image labels."
+    value: ${{ steps.meta.outputs.labels }}
 
 runs:
   using: "composite"
   steps:
-    - name: Set up Helm
-      # This action installs a specific version of Helm into the runner environment.
-      uses: azure/setup-helm@v4
+    - name: Download Application JAR
+      uses: actions/download-artifact@v4
       with:
-        version: 'v3.13.0'
+        name: ${{ inputs.jar-artifact-name }}
+        path: ${{ inputs.working-directory }}/target
 
-    - name: Install helm-push plugin
-      shell: bash
-      # This plugin provides the 'cm-push' command for uploading charts to ChartMuseum.
-      # It is installed idempotently to avoid errors on re-runs.
-      # See more: https://github.com/chartmuseum/helm-push
-      run: |
-        if ! helm plugin list | grep -q 'cm-push'; then
-          echo "helm-push plugin not found. Installing..."
-          helm plugin install https://github.com/chartmuseum/helm-push
-        else
-          echo "helm-push plugin is already installed."
-        fi
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
 
-    - name: Prepare Helm Versions
-      id: versions
-      shell: bash
-      run: |
-        FULL_APP_VERSION="${{ inputs.app-version }}"
-        if [ -z "$FULL_APP_VERSION" ]; then
-          echo "::error::Input 'app-version' is empty. A valid version is required."
-          exit 1
-        fi
-        
-        # The Helm chart 'version' field must be a valid SemVer string and cannot contain
-        # build metadata (+). We derive a clean version for the chart package by stripping
-        # the metadata, while using the full string for the appVersion field inside the chart.
-        CHART_VERSION=$(echo "$FULL_APP_VERSION" | cut -d'+' -f1)
+    - name: Set up Docker Buildx
+      id: buildx
+      uses: docker/setup-buildx-action@v3
 
-        echo "chart_version=${CHART_VERSION}" >> $GITHUB_OUTPUT
-        echo "app_version=${FULL_APP_VERSION}" >> $GITHUB_OUTPUT
+    - name: Login to Docker Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ inputs.registry }}
+        username: ${{ inputs.registry-username }}
+        password: ${{ inputs.registry-password }}
 
-        echo "Using Chart Version: ${CHART_VERSION}"
-        echo "Using App Version: ${FULL_APP_VERSION}"
+    - name: Docker meta
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ inputs.registry }}/${{ inputs.image-name }}
+        tags: |
+          type=raw,value=${{ inputs.app-version }}
+          type=raw,value=latest,enable=${{ github.ref_name == 'master' }}
+          type=sha,prefix=sha-
 
-    - name: Package Helm Chart
-      id: package_chart
-      shell: bash
-      run: |
-        # Package the chart using the derived versions. This command creates the .tgz file.
-        helm package ${{ inputs.chart-path }} --version ${{ steps.versions.outputs.chart_version }} --app-version ${{ steps.versions.outputs.app_version }}
-
-        # Reliably determine the packaged chart's filename for the next step.
-        CHART_NAME=$(helm show chart ${{ inputs.chart-path }} | grep '^name:' | awk '{print $2}')
-        PACKAGE_FILE="${CHART_NAME}-${{ steps.versions.outputs.chart_version }}.tgz"
-        
-        echo "packaged_chart=${PACKAGE_FILE}" >> $GITHUB_OUTPUT
-        echo "Packaged chart to ${PACKAGE_FILE}"
-
-    - name: Push chart using helm-push
-      shell: bash
-      run: |
-        FORCE_FLAG=""
-        if [[ "${{ inputs.force }}" == "true" ]]; then
-          FORCE_FLAG="--force"
-        fi
-        helm cm-push ${{ steps.package_chart.outputs.packaged_chart }} ${{ inputs.chartmuseum-url }} $FORCE_FLAG
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ${{ inputs.working-directory }}
+        platforms: ${{ inputs.platforms }}
+        push: ${{ inputs.push-image }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
