@@ -1,32 +1,43 @@
 name: 'Publish Helm Chart Action'
-description: 'Packages and pushes a Helm chart to a ChartMuseum repository.'
+description: 'Packages and publishes a Helm chart to ChartMuseum.'
 
 inputs:
   chart-path:
     description: 'The path to the Helm chart directory.'
     required: true
-  chart-version:
-    description: 'The version to set for the Helm chart.'
-    required: true
-  app-version:
-    description: 'The appVersion to set for the Helm chart.'
-    required: true
   chartmuseum-url:
     description: 'The URL of the ChartMuseum instance.'
     required: true
-  force:
-    description: 'Whether to force push the chart if it already exists.'
-    required: false
-    default: 'false'
+  app-version:
+    description: 'The version of the application to set in the chart.'
+    required: true
 
 runs:
   using: "composite"
   steps:
-    - name: Publish Helm chart to ChartMuseum
-      uses: chartmuseum/helm-push-action@v0.4.1
+    - name: Set up Helm
+      uses: azure/setup-helm@v4
       with:
-        chart_path: ${{ inputs.chart-path }}
-        chart_version: ${{ inputs.chart-version }}
-        app_version: ${{ inputs.app-version }}
-        chartmuseum_url: ${{ inputs.chartmuseum-url }}
-        force: ${{ inputs.force }}
+        version: 'v3.13.0'
+
+    - name: Install helm-push plugin
+      shell: bash
+      # This plugin provides the 'cm-push' command for uploading charts to ChartMuseum.
+      # See more: https://github.com/chartmuseum/helm-push
+      run: helm plugin install https://github.com/chartmuseum/helm-push
+
+    - name: Package Helm Chart
+      id: package_chart
+      shell: bash
+      run: |
+        # We package the chart and dynamically inject the correct application and chart version.
+        helm package ${{ inputs.chart-path }} --version ${{ inputs.app-version }} --app-version ${{ inputs.app-version }}
+
+        # Find the packaged chart file in the current directory.
+        PACKAGE_FILE=$(ls *.tgz)
+        echo "packaged_chart=${PACKAGE_FILE}" >> $GITHUB_OUTPUT
+
+    - name: Push chart using helm-push
+      shell: bash
+      run: helm cm-push ${{ steps.package_chart.outputs.packaged_chart }} ${{ inputs.chartmuseum-url }}
+
