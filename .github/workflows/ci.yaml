@@ -50,6 +50,7 @@ jobs:
     needs: test
     outputs:
       image_name: ${{ steps.repo-owner.outputs.name }}/tekmetric-backend
+      tags: ${{ steps.build_and_push.outputs.tags }}
     permissions:
       contents: read
       packages: write
@@ -74,15 +75,6 @@ jobs:
           push-image: true
           working-directory: "backend"
           jar-artifact-name: "java-app-jar"
-
-      - name: Add Image URL to Job Summary
-        if: github.ref_name == 'master'
-        run: |
-          echo "### Docker Image Published" >> $GITHUB_STEP_SUMMARY
-          echo "The following image tags were pushed to the registry:" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "${{ steps.build_and_push.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
 
   scan-image:
     name: Scan Docker Image for Vulnerabilities
@@ -115,9 +107,9 @@ jobs:
 
   publish-chart:
     name: Publish Helm Chart
-    runs-on: self-hosted # As requested for local ChartMuseum
+    runs-on: self-hosted
     needs: [scan-image, test]
-    if: github.ref_name == 'master' # Only publish on master branch
+    if: true # Always run this job
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -129,4 +121,24 @@ jobs:
           chartmuseum-url: "http://localhost:9090"
           app-version: ${{ needs.test.outputs.version }} # Use the full SemVer string
           force: "false"
+
+  workflow-summary:
+    name: Workflow Summary
+    runs-on: ubuntu-latest
+    needs: [publish-chart, docker-build, test]
+    if: always() # Always run this job to provide a summary, even if previous jobs fail
+    steps:
+      - name: Create Workflow Summary
+        run: |
+          echo "## Tekmetric Backend CI Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** `${{ github.ref_name }}`" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** `${{ github.sha }}`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Artifact | Version / Details |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Application Version** | `${{ needs.test.outputs.version }}` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Docker Tag** | `${{ needs.test.outputs.docker_tag }}` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Docker Image** | `ghcr.io/${{ needs.docker-build.outputs.image_name }}` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Helm Chart** | Published to ChartMuseum at http://localhost:9090 |" >> $GITHUB_STEP_SUMMARY
 
