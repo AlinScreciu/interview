@@ -127,20 +127,16 @@ jobs:
     needs: [publish-chart, docker-build, test]
     if: always() # Always run this job to provide a summary, even if previous jobs fail
     steps:
-      - name: Dump Needs Context
-        run: echo "${{ toJSON(needs) }}"
-        
       - name: Create Workflow Summary
         run: |
           echo "## Tekmetric Backend CI Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Branch:** `${{ github.ref_name }}`" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit:** `${{ github.sha }}`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** '${{ github.ref_name }}'" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** '${{ github.sha }}'" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Artifact | Version / Details |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Application Version** | `${{ needs.test.outputs.version }}` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Docker Tag** | `${{ needs.test.outputs.docker_tag }}` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Docker Image** | `ghcr.io/${{ needs.docker-build.outputs.image_name }}` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Application Version** | '${{ needs.test.outputs.version }}' |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Docker Tag** | '${{ needs.test.outputs.docker_tag }}' |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Docker Image** | 'ghcr.io/${{ needs.docker-build.outputs.image_name }}' |" >> $GITHUB_STEP_SUMMARY
           echo "| **Helm Chart** | Published to ChartMuseum at http://localhost:9090 |" >> $GITHUB_STEP_SUMMARY
-
