@@ -24,7 +24,9 @@ runs:
       shell: bash
       # This plugin provides the 'cm-push' command for uploading charts to ChartMuseum.
       # See more: https://github.com/chartmuseum/helm-push
-      run: helm plugin install https://github.com/chartmuseum/helm-push
+      run: |
+        helm plugin install https://github.com/chartmuseum/helm-push || true
+        helm plugin list | grep 'cm-push' || (echo "helm-push plugin installation failed" && exit 1)
 
     - name: Package Helm Chart
       id: package_chart
