@@ -71,7 +71,7 @@ jobs:
           image-name: ${{ steps.repo-owner.outputs.name }}/tekmetric-backend
           app-version: ${{ needs.test.outputs.docker_tag }}
           platforms: linux/amd64,linux/arm64
-          push-image: ${{ github.ref_name == 'master' }}
+          push-image: true
           working-directory: "backend"
           jar-artifact-name: "java-app-jar"
 
