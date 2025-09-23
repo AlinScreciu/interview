@@ -1,27 +1,27 @@
-name: 'Java Test & Package Action'
-description: 'Downloads a workspace, runs tests, and packages the application with a semantic version.'
+name: "Java Test & Package Action"
+description: "Downloads a workspace, runs tests, and packages the application with a semantic version."
 
 inputs:
   java-version:
-    description: 'JDK version.'
+    description: "JDK version."
     required: false
-    default: '25'
+    default: "25"
   distribution:
-    description: 'JDK distribution (e.g., temurin, corretto).'
+    description: "JDK distribution (e.g., temurin, corretto)."
     required: false
-    default: 'corretto'
+    default: "corretto"
   working-directory:
-    description: 'Directory of the pom.xml, for monorepos.'
+    description: "Directory of the pom.xml, for monorepos."
     required: false
-    default: 'backend'
+    default: "backend"
   jar-artifact-name:
-    description: 'Name for the final uploaded JAR artifact.'
+    description: "Name for the final uploaded JAR artifact."
     required: false
-    default: 'java-app-jar'
+    default: "java-app-jar"
   workspace-artifact-name:
-    description: 'Name of the workspace artifact to download.'
+    description: "Name of the workspace artifact to download."
     required: false
-    default: 'workspace'
+    default: "workspace"
 
 outputs:
   version:
@@ -39,7 +39,7 @@ runs:
       with:
         java-version: ${{ inputs.java-version }}
         distribution: ${{ inputs.distribution }}
-        cache: 'maven'
+        cache: "maven"
         cache-dependency-path: ${{ inputs.working-directory }}/pom.xml
 
     - name: Download Workspace
@@ -56,7 +56,7 @@ runs:
         echo "Attempting to get base version from pom.xml..."
         # We use -q (quiet) to suppress Maven's download logs and get only the version string.
         BASE_VERSION=$(mvn -q help:evaluate -Dexpression=project.base.version -DforceStdout)
-        
+
         echo "Base version retrieved by Maven: [${BASE_VERSION}]"
 
         # If the quiet command fails to produce a version, we re-run it in verbose mode
@@ -66,7 +66,7 @@ runs:
           mvn help:evaluate -Dexpression=project.base.version -DforceStdout
           exit 1
         fi
-        
+
         PATCH_VERSION="${{ github.run_number }}"
         BUILD_METADATA="$(date +'%Y%m%d').${GITHUB_SHA::7}"
 
@@ -84,7 +84,7 @@ runs:
 
         echo "Generated SemVer version: ${VERSION}"
         echo "Sanitized Docker tag: ${DOCKER_TAG}"
-    
+
     - name: Run Tests with Maven
       shell: bash
       working-directory: ${{ inputs.working-directory }}
@@ -105,4 +105,3 @@ runs:
       with:
         name: ${{ inputs.jar-artifact-name }}
         path: ${{ inputs.working-directory }}/target/app.jar
-

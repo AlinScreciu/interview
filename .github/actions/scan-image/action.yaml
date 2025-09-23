@@ -1,15 +1,15 @@
-name: 'Scan Docker Image Action'
-description: 'Scans a Docker image for vulnerabilities using Trivy.'
+name: "Scan Docker Image Action"
+description: "Scans a Docker image for vulnerabilities using Trivy."
 
 inputs:
   image-ref:
-    description: 'The full reference of the Docker image to scan (e.g., ghcr.io/owner/repo:tag).'
+    description: "The full reference of the Docker image to scan (e.g., ghcr.io/owner/repo:tag)."
     required: true
   registry-username:
-    description: 'Username for the container registry.'
+    description: "Username for the container registry."
     required: true
   registry-password:
-    description: 'Password or token for the container registry.'
+    description: "Password or token for the container registry."
     required: true
 
 runs:
@@ -22,12 +22,11 @@ runs:
         TRIVY_PASSWORD: ${{ inputs.registry-password }}
       with:
         image-ref: ${{ inputs.image-ref }}
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-        severity: 'CRITICAL,HIGH'
+        format: "sarif"
+        output: "trivy-results.sarif"
+        severity: "CRITICAL,HIGH"
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
       with:
-        sarif_file: 'trivy-results.sarif'
-
+        sarif_file: "trivy-results.sarif"

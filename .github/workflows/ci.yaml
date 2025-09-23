@@ -72,7 +72,7 @@ jobs:
           image-name: ${{ steps.repo-owner.outputs.name }}/tekmetric-backend
           app-version: ${{ needs.test.outputs.docker_tag }}
           platforms: linux/amd64,linux/arm64
-          push-image: true # Always push the image to make it available for the scan job
+          push-image: true
           working-directory: "backend"
           jar-artifact-name: "java-app-jar"
 
@@ -81,9 +81,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [docker-build, test]
     permissions:
-      contents: read # for checkout
-      packages: read # to pull the image from GHCR
-      security-events: write # to upload SARIF results to GitHub Security tab
+      contents: read
+      packages: read
+      security-events: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -109,34 +109,71 @@ jobs:
     name: Publish Helm Chart
     runs-on: self-hosted
     needs: [scan-image, test]
-    if: true # Always run this job
+    outputs:
+      packaged_chart_name: ${{ steps.publish.outputs.packaged_chart_name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Publish Helm Chart
+        id: publish
         uses: ./.github/actions/publish-chart
         with:
           chart-path: "./backend/src/main/helm/backend-service-chart"
           chartmuseum-url: "http://localhost:9090"
-          app-version: ${{ needs.test.outputs.version }} # Use the full SemVer string
+          app-version: ${{ needs.test.outputs.version }}
 
   workflow-summary:
     name: Workflow Summary
     runs-on: ubuntu-latest
     needs: [publish-chart, docker-build, test]
-    if: always() # Always run this job to provide a summary, even if previous jobs fail
+    if: always()
     steps:
       - name: Create Workflow Summary
+        env:
+          TEST_RESULT: ${{ needs.test.result }}
+          TEST_VERSION: ${{ needs.test.outputs.version }}
+          TEST_DOCKER_TAG: ${{ needs.test.outputs.docker_tag }}
+          DOCKER_BUILD_RESULT: ${{ needs.docker-build.result }}
+          DOCKER_BUILD_IMAGE_NAME: ${{ needs.docker-build.outputs.image_name }}
+          PUBLISH_CHART_RESULT: ${{ needs.publish-chart.result }}
+          CHART_PACKAGE_NAME: ${{ needs.publish-chart.outputs.packaged_chart_name }}
+          BRANCH_NAME_PR: ${{ github.head_ref }}
+          BRANCH_NAME_PUSH: ${{ github.ref_name }}
         run: |
+          # Determine the correct branch name for display
+          if [[ -n "$BRANCH_NAME_PR" ]]; then
+            BRANCH_DISPLAY_NAME=$BRANCH_NAME_PR
+          else
+            BRANCH_DISPLAY_NAME=$BRANCH_NAME_PUSH
+          fi
+
           echo "## Tekmetric Backend CI Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Branch:** '${{ github.ref_name }}'" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit:** '${{ github.sha }}'" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`$BRANCH_DISPLAY_NAME\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Artifact | Version / Details |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Application Version** | '${{ needs.test.outputs.version }}' |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Docker Tag** | '${{ needs.test.outputs.docker_tag }}' |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Docker Image** | 'ghcr.io/${{ needs.docker-build.outputs.image_name }}' |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Helm Chart** | Published to ChartMuseum at http://localhost:9090 |" >> $GITHUB_STEP_SUMMARY
+          echo "| Artifact | Version / Details | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "$TEST_RESULT" == "success" ]]; then
+            echo "| **Application Version** | \`$TEST_VERSION\` | ✅ Succeeded |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Docker Tag** | \`$TEST_DOCKER_TAG\` | ✅ Succeeded |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| **Application Version** | N/A | ❌ Failed or Skipped |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Docker Tag** | N/A | ❌ Failed or Skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [[ "$DOCKER_BUILD_RESULT" == "success" ]]; then
+            echo "| **Docker Image** | \`ghcr.io/$DOCKER_BUILD_IMAGE_NAME\` | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| **Docker Image** | N/A | ❌ Failed or Skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "$PUBLISH_CHART_RESULT" == "success" ]]; then
+            CHART_URL="http://localhost:9090/charts/$CHART_PACKAGE_NAME"
+            echo "| **Helm Chart** | Published to ChartMuseum ([view]($CHART_URL)) | ✅ Published |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| **Helm Chart** | N/A | ❌ Failed or Skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
+
