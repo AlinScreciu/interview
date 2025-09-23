@@ -25,7 +25,7 @@ jobs:
       - name: Build with reusable action
         uses: ./.github/actions/java-build
         with:
-          working-directory: 'backend'
+          working-directory: "backend"
 
   test:
     name: Test & Package Application
@@ -41,8 +41,8 @@ jobs:
         id: test_package
         uses: ./.github/actions/java-test
         with:
-          working-directory: 'backend'
-          jar-artifact-name: 'java-app-jar'
+          working-directory: "backend"
+          jar-artifact-name: "java-app-jar"
 
   docker-build:
     name: Build Docker Image
@@ -72,8 +72,8 @@ jobs:
           app-version: ${{ needs.test.outputs.version }}
           platforms: linux/amd64,linux/arm64
           push-image: true
-          working-directory: 'backend'
-          jar-artifact-name: 'java-app-jar'
+          working-directory: "backend"
+          jar-artifact-name: "java-app-jar"
 
       - name: Add Image URL to Job Summary
         # See more: https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary
@@ -99,7 +99,7 @@ jobs:
       - name: Scan Docker Image
         uses: ./.github/actions/scan-image
         with:
-          image-ref: 'ghcr.io/${{ needs.docker-build.outputs.image-name }}:${{ needs.test.outputs.version }}'
+          image-ref: "ghcr.io/${{ needs.docker-build.outputs.image-name }}:${{ needs.test.outputs.version }}"
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -126,9 +126,8 @@ jobs:
       - name: Publish Helm Chart
         uses: ./.github/actions/publish-chart
         with:
-          chart-path: './backend/src/main/helm/backend-service-chart'
+          chart-path: "./backend/src/main/helm/backend-service-chart"
           chart-version: ${{ needs.test.outputs.version }}
           app-version: ${{ needs.test.outputs.version }}
-          chartmuseum-url: 'http://localhost:9090'
-          force: 'false'
-
+          chartmuseum-url: "http://localhost:9090"
+          force: "false"
