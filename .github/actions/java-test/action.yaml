@@ -1,27 +1,27 @@
-name: 'Java Test & Package Action'
-description: 'Downloads a workspace, runs tests, and packages the application.'
+name: "Java Test & Package Action"
+description: "Downloads a workspace, runs tests, and packages the application."
 
 inputs:
   java-version:
-    description: 'JDK version.'
+    description: "JDK version."
     required: false
-    default: '25'
+    default: "25"
   distribution:
-    description: 'JDK distribution (e.g., temurin, corretto).'
+    description: "JDK distribution (e.g., temurin, corretto)."
     required: false
-    default: 'corretto'
+    default: "corretto"
   working-directory:
-    description: 'Directory of the pom.xml, for monorepos.'
+    description: "Directory of the pom.xml, for monorepos."
     required: false
-    default: 'backend'
+    default: "backend"
   workspace-artifact-name:
-    description: 'Name of the workspace artifact to download.'
+    description: "Name of the workspace artifact to download."
     required: false
-    default: 'workspace'
+    default: "workspace"
   jar-artifact-name:
-    description: 'Name for the final uploaded JAR artifact.'
+    description: "Name for the final uploaded JAR artifact."
     required: false
-    default: 'java-app-jar'
+    default: "java-app-jar"
 
 outputs:
   app-version:
@@ -36,7 +36,7 @@ runs:
       with:
         java-version: ${{ inputs.java-version }}
         distribution: ${{ inputs.distribution }}
-        cache: 'maven'
+        cache: "maven"
         cache-dependency-path: ${{ inputs.working-directory }}/pom.xml
 
     - name: Download Workspace
@@ -58,19 +58,26 @@ runs:
       id: generate-version
       shell: bash
       run: |
+        # Assumes BASE_VERSION from pom.xml is like "1.0"
+        # We will use the GitHub run number as the PATCH version.
         BASE_VERSION="${{ steps.get-version.outputs.base_version }}"
-        VERSION_METADATA="${{ github.run_number }}-$(date +'%Y%m%d').${GITHUB_SHA::7}"
-        
-        # Check if the current branch is 'master' to determine the version format.
-        # See more: https://docs.github.com/en/actions/learn-github-actions/contexts#github-context
-        if [[ "${{ github.ref_name }}" == "master" ]]; then
-          VERSION="${BASE_VERSION}.${VERSION_METADATA}"
+        PATCH_VERSION="${{ github.run_number }}"
+
+        # Build metadata should contain the date and commit SHA
+        BUILD_METADATA="$(date +'%Y%m%d').${GITHUB_SHA::7}"
+
+        # For non-master branches, create a pre-release version
+        if [[ "${{ github.ref_name }}" != "master" ]]; then
+          # ✅ Example: 1.0.32-SNAPSHOT+20250923.1dd30d4
+          VERSION="${BASE_VERSION}.${PATCH_VERSION}-SNAPSHOT+${BUILD_METADATA}"
         else
-          VERSION="${BASE_VERSION}.${VERSION_METADATA}-SNAPSHOT"
+          # ✅ Example for master: 1.0.32+20250923.1dd30d4
+          VERSION="${BASE_VERSION}.${PATCH_VERSION}+${BUILD_METADATA}"
         fi
+
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
         echo "Generated version: ${VERSION}"
-
+        
     - name: Run Tests with Maven
       shell: bash
       working-directory: ${{ inputs.working-directory }}
@@ -91,4 +98,3 @@ runs:
       with:
         name: ${{ inputs.jar-artifact-name }}
         path: ${{ inputs.working-directory }}/target/app.jar
-
