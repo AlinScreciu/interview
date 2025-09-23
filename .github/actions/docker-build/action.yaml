@@ -22,9 +22,8 @@ inputs:
   image-name:
     description: 'Name of the Docker image.'
     required: true
-  # See more about tag formats: https://github.com/docker/metadata-action
-  tags:
-    description: 'Multi-line string of tags for docker/metadata-action.'
+  app-version:
+    description: 'The semantic version of the application to use for tagging.'
     required: true
   platforms:
     description: 'Comma-separated list of platforms to build for.'
@@ -71,7 +70,10 @@ runs:
       uses: docker/metadata-action@v5
       with:
         images: ${{ inputs.registry }}/${{ inputs.image-name }}
-        tags: ${{ inputs.tags }}
+        tags: |
+          type=raw,value=${{ inputs.app-version }}
+          type=raw,value=latest,enable=${{ github.ref_name == 'master' }}
+          type=sha,prefix=sha-
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v5

@@ -69,13 +69,10 @@ jobs:
           registry-username: ${{ github.actor }}
           registry-password: ${{ secrets.GITHUB_TOKEN }}
           image-name: ${{ steps.repo-owner.outputs.name }}/tekmetric-backend
-          tags: |
-            type=sha,prefix=
-            type=raw,value=${{ needs.test.outputs.version }}
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
+          app-version: ${{ needs.test.outputs.version }}
           platforms: linux/amd64,linux/arm64
           # Only push the image when the workflow runs on the master branch
-          push-image: ${{ github.ref == 'refs/heads/master' }}
+          push-image: ${{ github.ref_name == 'master' }}
           working-directory: 'backend'
           jar-artifact-name: 'java-app-jar'
 
