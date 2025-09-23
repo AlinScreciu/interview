@@ -127,6 +127,9 @@ jobs:
     needs: [publish-chart, docker-build, test]
     if: always() # Always run this job to provide a summary, even if previous jobs fail
     steps:
+      - name: Dump Needs Context
+        run: echo "${{ toJSON(needs) }}"
+        
       - name: Create Workflow Summary
         run: |
           echo "## Tekmetric Backend CI Summary" >> $GITHUB_STEP_SUMMARY
