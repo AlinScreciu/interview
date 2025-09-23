@@ -171,22 +171,19 @@ podDisruptionBudget:
 # See https://kubernetes.io/docs/concepts/services-networking/network-policies/
 networkPolicy:
   enabled: false
-  # By default, allows ingress from pods within the same namespace with the same app name (e.g., a frontend).
-  # Also allows ingress from the ingress controller's namespace.
-  ingress:
-    - from:
-      - podSelector:
-          matchLabels:
-            app.kubernetes.io/name: {{ include "helm.name" . }}
-            app.kubernetes.io/instance: {{ .Release.Name }}
-      # Example: Allow traffic from the NGINX ingress controller
-      # - from:
-      #   - namespaceSelector:
-      #       matchLabels:
-      #         kubernetes.io/metadata.name: ingress-nginx
-      #     podSelector:
-      #       matchLabels:
-      #         app.kubernetes.io/name: ingress-nginx
+  # -- Ingress rules for the NetworkPolicy.
+  # The default behavior of the networkpolicy.yaml template is to allow traffic from pods
+  # with the same app name and release instance, which this empty block enables.
+  # You can override this with more specific rules.
+  ingress: []
+    # Example: Allow traffic from a specific namespace and pod selector
+    # - from:
+    #   - namespaceSelector:
+    #       matchLabels:
+    #         kubernetes.io/metadata.name: ingress-nginx
+    #     podSelector:
+    #       matchLabels:
+    #         app.kubernetes.io/name: ingress-nginx
 
 # -- Kubernetes Gateway API HTTPRoute configuration
 # This allows exposing the service via an existing Gateway resource.
