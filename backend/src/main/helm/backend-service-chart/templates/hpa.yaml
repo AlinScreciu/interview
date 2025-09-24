@@ -1,4 +1,4 @@
-{{- if .Values.autoscaling.enabled }}
+{{- if and .Values.horizontalPodAutoscaler.enabled ( not .Values.verticalPodAutoscaler.enabled ) }}
 # Using the stable autoscaling/v2 API, which is supported by the
 # Kubernetes version specified in Chart.yaml (>=1.23.0-0).
 apiVersion: autoscaling/v2
@@ -12,24 +12,23 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: {{ include "helm.fullname" . }}
-  minReplicas: {{ .Values.autoscaling.minReplicas }}
-  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  minReplicas: {{ .Values.horizontalPodAutoscaler.minReplicas }}
+  maxReplicas: {{ .Values.horizontalPodAutoscaler.maxReplicas }}
   metrics:
-    {{- if .Values.autoscaling.targetCPUUtilizationPercentage }}
+    {{- if .Values.horizontalPodAutoscaler.targetCPUUtilizationPercentage }}
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
+          averageUtilization: {{ .Values.horizontalPodAutoscaler.targetCPUUtilizationPercentage }}
     {{- end }}
-    {{- if .Values.autoscaling.targetMemoryUtilizationPercentage }}
+    {{- if .Values.horizontalPodAutoscaler.targetMemoryUtilizationPercentage }}
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: {{ .Values.autoscaling.targetMemoryUtilizationPercentage }}
+          averageUtilization: {{ .Values.horizontalPodAutoscaler.targetMemoryUtilizationPercentage }}
     {{- end }}
 {{- end }}
-

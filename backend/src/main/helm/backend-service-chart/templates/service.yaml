@@ -1,3 +1,4 @@
+# Source: backend-service-chart/templates/service.yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -8,8 +9,8 @@ spec:
   type: {{ .Values.service.type }}
   ports:
     - port: {{ .Values.service.port }}
-      targetPort: http
+      targetPort: service-port
       protocol: TCP
-      name: http
+      name: http-main
   selector:
     {{- include "helm.selectorLabels" . | nindent 4 }}

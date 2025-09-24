@@ -11,5 +11,12 @@ spec:
     - name: wget
       image: busybox
       command: ['wget']
-      args: ['{{ include "helm.fullname" . }}:{{ .Values.service.port }}']
+      args: ['tekmetric-backend-backend-service-chart:8080']
+      resources:
+        requests:
+          cpu: 50m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 64Mi
   restartPolicy: Never
