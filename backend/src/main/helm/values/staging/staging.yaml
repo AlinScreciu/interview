@@ -1,0 +1,16 @@
+image:
+  name: tekmetric-backend
+  repository: ghcr.io/alinscreciu
+app:
+  name: backend-service
+  autoJvmMemory: true
+  mgrPort: 8080
+  jvmMemoryPercentage: 75
+
+podDisruptionBudget:
+  minAvailable: 2
+
+env:
+  SPRING_PROFILES_ACTIVE: "local"
+
+sizeProfile: medium

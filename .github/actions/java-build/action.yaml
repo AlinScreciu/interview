@@ -25,7 +25,7 @@ inputs:
   artifact-retention-days:
     description: 'How long to retain the workspace artifact.'
     required: false
-    default: 1
+    default: "1"
 
 runs:
   using: "composite"
