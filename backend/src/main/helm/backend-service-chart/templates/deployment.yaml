@@ -88,7 +88,7 @@ spec:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}/{{ .Values.image.name }}:{{ replace .Chart.AppVersion "+" "-" }}"
+          image: "{{ .Values.image.repository }}/{{ .Values.image.name }}:{{ .Chart.AppVersion | replace "+" "-" }}"
           imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
           ports:
             - name: service-port

@@ -1,5 +1,6 @@
 # Name of the workflow, displayed in the GitHub Actions tab.
 name: Tekmetric Backend CI
+run-name: ${{ github.workflow }} - ${{ github.head_ref || github.ref_name }} - ${{ github.run_number }}
 
 on:
   push:
@@ -10,7 +11,7 @@ on:
 
 # Ensures that only one workflow run is in progress for a specific PR or branch.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -124,7 +125,7 @@ jobs:
           app-version: ${{ needs.test.outputs.version }}
 
   workflow-summary:
-    name: Workflow Summary
+    name: Workflow
     runs-on: self-hosted
     needs: [publish-chart, docker-build, test]
     if: always()

@@ -61,6 +61,10 @@ runs:
 
         echo "packaged_chart=${PACKAGE_FILE}" >> $GITHUB_OUTPUT
 
+    - name: Update chart dependency
+      shell: bash
+      run: helm dependency update ${{ inputs.chart-path }}
+      
     - name: Push chart using helm-push
       shell: bash
       run: helm cm-push ${{ steps.package_chart.outputs.packaged_chart }} ${{ inputs.chartmuseum-url }}
