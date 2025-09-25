@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""
-Helm Deployment Monitor Script
-Shows a pre-flight diff and monitors Kubernetes deployments in real-time.
-"""
-
 import argparse
 import base64
 import copy
