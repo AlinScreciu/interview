@@ -58,10 +58,6 @@ jobs:
       GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
       KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
       REPO_ACCESS_TOKEN: ${{ secrets.GH_PAT }}
-      chart-artifact-name: "helm-chart"
-      repo-name: ${{ github.repository }}
-      run-id: ${{ needs.retrieve-run-id.outputs.ci-run-id }}
-      
   # Deploys to the production environment only after a successful staging deployment.
   deploy-to-production:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
