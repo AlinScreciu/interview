@@ -5,6 +5,7 @@ app:
   name: backend-service
   autoJvmMemory: true
   jvmMemoryPercentage: 75
+  mgrPort: 8181
 
 podDisruptionBudget:
   minAvailable: 2
@@ -15,7 +16,7 @@ strategy:
   type: RollingUpdate
   rollingUpdate:
     maxSurge: 1
-    maxUnavailable: 
+    maxUnavailable:
 
 env:
   SPRING_PROFILES_ACTIVE: "local"
@@ -29,7 +30,7 @@ livenessProbe:
   spec:
     httpGet:
       path: /actuator/health/liveness
-      port: 8080
+      port: http-management
     initialDelaySeconds: 30
     periodSeconds: 10
     timeoutSeconds: 5
@@ -40,7 +41,7 @@ readinessProbe:
   spec:
     httpGet:
       path: /actuator/health/readiness
-      port: 8080
+      port: http-management
     initialDelaySeconds: 15
     periodSeconds: 10
     timeoutSeconds: 5
@@ -51,6 +52,15 @@ startupProbe:
   spec:
     httpGet:
       path: /actuator/health/liveness
-      port: 8080
+      port: http-management
     failureThreshold: 30
     periodSeconds: 5
+
+serviceMonitor:
+  enabled: true
+  labels: {}
+  endpoints:
+    - port: 8181
+      interval: 15s
+      scrapeTimeout: 10s
+      path: /actuator/prometheus

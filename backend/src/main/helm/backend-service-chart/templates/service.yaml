@@ -8,9 +8,13 @@ metadata:
 spec:
   type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.service.port }}
-      targetPort: service-port
+    - name: service-port
       protocol: TCP
-      name: http-main
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.app.port }}
+    - name: http-management
+      protocol: TCP
+      port: {{ .Values.service.management.port }}
+      targetPort: {{ .Values.app.mgrPort }}
   selector:
     {{- include "helm.selectorLabels" . | nindent 4 }}
