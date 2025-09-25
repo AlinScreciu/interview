@@ -74,59 +74,12 @@ jobs:
           KUBECONFIG: "$HOME/.kube/config"
 
       - name: Download Helm Chart & Checksum Artifact
-        uses: actions/github-script@v7
+        uses: actions/download-artifact@v4
         with:
+          name: ${{ inputs.chart-artifact-name }}
+          path: .
+          run-id: ${{ inputs.run-id }}
           github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
-          script: |
-            const fs = require('fs');
-            const core = require('@actions/core');
-            const exec = require('@actions/exec');
-            
-            const repoName = '${{ inputs.repo-name }}';
-            const runId = '${{ inputs.run-id }}';
-            const artifactName = '${{ inputs.chart-artifact-name }}';
-            
-            const [owner, repo] = repoName.split('/');
-            
-            core.info(`Fetching artifacts from ${owner}/${repo} for run ID ${runId}...`);
-            
-            // 1. List artifacts using the modern github.rest.actions client
-            const artifactsResponse = await github.rest.actions.listWorkflowRunArtifacts({
-              owner: owner,
-              repo: repo,
-              run_id: parseInt(runId),
-            });
-            
-            if (artifactsResponse.data.artifacts.length === 0) {
-              core.setFailed("No artifacts found from the specified CI run ID.");
-              return;
-            }
-            
-            const artifact = artifactsResponse.data.artifacts.find(a => a.name === artifactName);
-            if (!artifact) {
-              core.setFailed(`Artifact '${artifactName}' not found.`);
-              return;
-            }
-            
-            core.info(`Found artifact '${artifactName}' (ID: ${artifact.id}). Downloading...`);
-            
-            // 2. Download the artifact (returns file content as a buffer)
-            const downloadResponse = await github.rest.actions.downloadArtifact({
-              owner: owner,
-              repo: repo,
-              artifact_id: artifact.id,
-              archive_format: 'zip',
-            });
-            
-            // 3. Manually write the downloaded zip file to disk
-            const zipPath = `${artifactName}.zip`;
-            fs.writeFileSync(zipPath, Buffer.from(downloadResponse.data));
-            
-            core.info(`Successfully downloaded ${zipPath}. Extracting...`);
-            
-            // 4. Manually extract the zip file
-            await exec.exec('unzip', ['-o', zipPath]);
-            core.info('Artifact extracted successfully.');
 
       - name: Generate Deployment Plan using release.py
         shell: bash
