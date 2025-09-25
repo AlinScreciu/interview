@@ -16,5 +16,11 @@ spec:
       protocol: TCP
       port: {{ .Values.service.management.port }}
       targetPort: {{ .Values.app.mgrPort }}
+    {{- range .Values.app.extraPorts }}
+    - name: {{ .name }}
+      protocol: {{ .protocol | default "TCP" }}
+      port: {{ .containerPort }}
+      targetPort: {{ .containerPort }}
+    {{- end }}
   selector:
     {{- include "helm.selectorLabels" . | nindent 4 }}

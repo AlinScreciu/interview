@@ -6,25 +6,43 @@ app:
   autoJvmMemory: true
   jvmMemoryPercentage: 75
   mgrPort: 8181
+  extraPorts:
+    - name: otel-metrics
+      containerPort: 9464
+      protocol: TCP
 
 podDisruptionBudget:
   minAvailable: 2
 
 replicaCount: 6
-# -- Deployment strategy. See https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
 strategy:
   type: RollingUpdate
   rollingUpdate:
     maxSurge: 1
-    maxUnavailable:
+    maxUnavailable: 0
 
 env:
   SPRING_PROFILES_ACTIVE: "local"
 
 sizeProfile: medium
 
-# -- Liveness, Readiness, and Startup probe configuration.
-# For more information, see https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+apm:
+  enabled: true
+  initContainer:
+    repository: "ghcr.io/open-telemetry/opentelemetry-java-instrumentation/opentelemetry-java-instrumentation"
+    tag: "latest" # Consider pinning to a specific version in production, e.g., "1.32.0"
+    pullPolicy: "IfNotPresent"
+  copyCommand:
+    - "sh"
+    - "-c"
+    - "cp /opentelemetry-java-instrumentation.jar /apm/agent.jar"
+  agentPath: /apm/agent.jar
+  env:
+    OTEL_METRICS_EXPORTER: "prometheus"
+    OTEL_EXPORTER_PROMETHEUS_PORT: "9464"
+    OTEL_SERVICE_NAME: '{{ include "helm.fullname" . }}'
+    OTEL_RESOURCE_ATTRIBUTES: "service.namespace={{ .Release.Namespace }}"
+
 livenessProbe:
   enabled: true
   spec:
@@ -64,3 +82,8 @@ serviceMonitor:
       interval: 15s
       scrapeTimeout: 10s
       path: /actuator/prometheus
+    - port: otel-metrics
+      interval: 15s
+      scrapeTimeout: 10s
+      path: /metrics
+
