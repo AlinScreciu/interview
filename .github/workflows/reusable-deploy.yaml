@@ -47,14 +47,27 @@ jobs:
   plan:
     runs-on: self-hosted
     name: Generate Deployment Plan
+    environment:
+      name: ${{ inputs.environment-name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+          
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          
+      - name: Install Python dependencies
+        run: pip install -r .github/scripts/release-and-monitor/requirements.txt
 
-      - name: Configure GPG for Helm
+      - name: Configure Kubeconfig & GPG
         run: |
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > "$HOME/.kube/config"
           echo "${{ secrets.GPG_SECRET_KEY }}" | base64 --decode | gpg --batch --import
-
+        env:
+          KUBECONFIG: "$HOME/.kube/config"
+        
       - name: Download Helm Chart & Checksum Artifact
         uses: actions/github-script@v7
         with:
@@ -86,35 +99,20 @@ jobs:
               extract: true,
             });
 
-      - name: Verify Helm Chart Checksum
+      - name: Generate Deployment Plan using release.py
         shell: bash
+        env:
+          KUBECONFIG: "$HOME/.kube/config"
         run: |
           CHART_PACKAGE=$(ls *.tgz)
-          echo "Verifying checksum for $CHART_PACKAGE"
-          sha256sum --check --status "${CHART_PACKAGE}.sha256"
-          echo "Checksum verified successfully!"
-          
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-          
-      - name: Install Python dependencies
-        run: pip install -r .github/scripts/release-and-monitor/requirements.txt
-        
-      - name: Run Helm Diff (Plan) using release.py
-        shell: bash
-        run: |
-          CHART_PACKAGE=$(ls *.tgz)
-          echo "Generating diff for Helm chart..."
+          echo "Generating deployment plan using release.py..."
           python .github/scripts/release-and-monitor/release.py \
             --namespace "${{ inputs.namespace }}" \
             --release-name "${{ inputs.release-name }}" \
             --chart-path "${CHART_PACKAGE}" \
             --values-file "backend/src/main/helm/values/${{ inputs.environment-name }}/${{ inputs.environment-name }}.yaml" \
             --secrets-file "backend/src/main/helm/values/${{ inputs.environment-name }}/${{ inputs.environment-name }}.secrets.yaml" \
-            --dry-run \
-            > helm_diff_output.txt
+            --dry-run
 
       - name: Upload Plan Artifacts
         uses: actions/upload-artifact@v4
@@ -123,7 +121,6 @@ jobs:
           path: |
             *.tgz
             *.sha256
-            helm_diff_output.txt
             
   apply:
     runs-on: self-hosted
@@ -140,6 +137,8 @@ jobs:
         run: |
           echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > "$HOME/.kube/config"
           echo "${{ secrets.GPG_SECRET_KEY }}" | base64 --decode | gpg --batch --import
+        env:
+          KUBECONFIG: "$HOME/.kube/config"
 
       - name: Download Plan Artifacts
         uses: actions/download-artifact@v4
