@@ -30,7 +30,7 @@ FIND_DEPLOYMENT_TIMEOUT_SECONDS = 60
 
 # --- Global State for Signal Handling ---
 console = Console(
-    force_terminal=None if sys.stdout.isatty else True
+    force_terminal=os.getenv("CI")
 )
 log = logging.getLogger("rich")
 HELM_PROCESS = None
