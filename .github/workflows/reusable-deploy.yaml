@@ -76,6 +76,7 @@ jobs:
       - name: Download Helm Chart & Checksum Artifact
         uses: actions/github-script@v7
         with:
+          token: ${{ secrets.REPO_ACCESS_TOKEN }}
           script: |
             const { repo, runId, artifactName } = ${{ toJSON(inputs) }};
             const { actions } = github;
