@@ -4,38 +4,38 @@ on:
   workflow_call:
     inputs:
       environment-name:
-        description: 'Name of the target environment (e.g., staging, production).'
+        description: "Name of the target environment (e.g., staging, production)."
         required: true
         type: string
       namespace:
-        description: 'Kubernetes namespace for the deployment.'
+        description: "Kubernetes namespace for the deployment."
         required: true
         type: string
       release-name:
-        description: 'Helm release name for the deployment.'
+        description: "Helm release name for the deployment."
         required: true
         type: string
       chart-artifact-name:
-        description: 'Name of the Helm chart artifact from the CI workflow.'
+        description: "Name of the Helm chart artifact from the CI workflow."
         required: true
         type: string
       repo-name:
-        description: 'The repository name (owner/repo) to download artifacts from.'
+        description: "The repository name (owner/repo) to download artifacts from."
         required: true
         type: string
       run-id:
-        description: 'The ID of the CI workflow run to download artifacts from.'
+        description: "The ID of the CI workflow run to download artifacts from."
         required: true
         type: string
     secrets:
       GPG_SECRET_KEY:
-        description: 'GPG private key for Helm chart verification.'
+        description: "GPG private key for Helm chart verification."
         required: true
       KUBE_CONFIG:
-        description: 'Base64-encoded Kubeconfig file for the target cluster.'
+        description: "Base64-encoded Kubeconfig file for the target cluster."
         required: true
       REPO_ACCESS_TOKEN:
-        description: 'A GitHub token with read access to the repository artifacts.'
+        description: "A GitHub token with read access to the repository artifacts."
         required: true
 
 # Concurrency group to prevent multiple concurrent deployments to the same environment.
@@ -52,17 +52,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-          
-      - name: Set up Python
+
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          
+          python-version: "3.12"
+        env:
+          RUNNER_TOOL_CACHE: /tmp/runner_cache
+
       - name: Create Python virtual environment
-        run: python3.12 -m venv .venv
-      
+        run: python3.12 -m venv /tmp/.venv
+
       - name: Install Python dependencies
-        run: .venv/bin/pip install -r .github/scripts/release-and-monitor/requirements.txt
+        run: /tmp/.venv/bin/pip install -r .github/scripts/release-and-monitor/requirements.txt
 
       - name: Configure Kubeconfig & GPG
         run: |
@@ -70,7 +72,7 @@ jobs:
           echo "${{ secrets.GPG_SECRET_KEY }}" | base64 --decode | gpg --batch --import
         env:
           KUBECONFIG: "$HOME/.kube/config"
-        
+
       - name: Download Helm Chart & Checksum Artifact
         uses: actions/github-script@v7
         with:
@@ -109,7 +111,7 @@ jobs:
         run: |
           CHART_PACKAGE=$(ls *.tgz)
           echo "Generating deployment plan using release.py..."
-          .venv/bin/python .github/scripts/release-and-monitor/release.py \
+          /tmp/.venv/bin/python .github/scripts/release-and-monitor/release.py \
             --namespace "${{ inputs.namespace }}" \
             --release-name "${{ inputs.release-name }}" \
             --chart-path "${CHART_PACKAGE}" \
@@ -124,7 +126,7 @@ jobs:
           path: |
             *.tgz
             *.sha256
-            
+
   apply:
     runs-on: self-hosted
     name: Apply Deployment
@@ -135,7 +137,20 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+        env:
+          RUNNER_TOOL_CACHE: /tmp/runner_cache
+
+      - name: Create Python virtual environment
+        run: python3.12 -m venv /tmp/.venv
+
+      - name: Install Python dependencies
+        run: /tmp/.venv/bin/pip install -r .github/scripts/release-and-monitor/requirements.txt
+
       - name: Configure Kubeconfig & GPG
         run: |
           echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > "$HOME/.kube/config"
@@ -148,18 +163,7 @@ jobs:
         with:
           name: deployment-plan-${{ github.run_id }}-${{ inputs.environment-name }}
           path: .
-          
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          
-      - name: Create Python virtual environment
-        run: python3.12 -m venv .venv
-          
-      - name: Install Python dependencies
-        run: .venv/bin/pip install -r .github/scripts/release-and-monitor/requirements.txt
-          
+
       - name: Deploy with Helm using release.py
         shell: bash
         env:
@@ -167,7 +171,7 @@ jobs:
         run: |
           CHART_PACKAGE=$(ls *.tgz)
           echo "Deploying Helm chart..."
-          .venv/bin/python .github/scripts/release-and-monitor/release.py \
+          /tmp/.venv/bin/python .github/scripts/release-and-monitor/release.py \
             --namespace "${{ inputs.namespace }}" \
             --release-name "${{ inputs.release-name }}" \
             --chart-path "${CHART_PACKAGE}" \
