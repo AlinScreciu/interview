@@ -28,7 +28,9 @@ from rich.text import Text
 FIND_DEPLOYMENT_TIMEOUT_SECONDS = 60
 
 # --- Global State for Signal Handling ---
-console = Console()
+console = Console(
+    force_terminal=True # To display colors in CI
+)
 log = logging.getLogger("rich")
 HELM_PROCESS = None
 SHUTDOWN_EVENT = threading.Event()
