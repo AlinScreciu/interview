@@ -1,6 +1,7 @@
 image:
   name: tekmetric-backend
   repository: ghcr.io/alinscreciu
+
 app:
   name: backend-service
   autoJvmMemory: true
@@ -29,19 +30,36 @@ sizeProfile: medium
 apm:
   enabled: true
   initContainer:
-    repository: "ghcr.io/open-telemetry/opentelemetry-java-instrumentation/opentelemetry-java-instrumentation"
-    tag: "latest" # Consider pinning to a specific version in production, e.g., "1.32.0"
+    repository: "ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java"
+    tag: "2.20.1" # Consider pinning to a specific version in production
     pullPolicy: "IfNotPresent"
   copyCommand:
     - "sh"
     - "-c"
-    - "cp /opentelemetry-java-instrumentation.jar /apm/agent.jar"
+    - "cp /javaagent.jar /apm/agent.jar"
   agentPath: /apm/agent.jar
   env:
-    OTEL_METRICS_EXPORTER: "prometheus"
+    # Configure OTLP export to the collector
+    OTEL_TRACES_EXPORTER: "otlp"
+    OTEL_METRICS_EXPORTER: "otlp,prometheus"  # Both OTLP and Prometheus
+    OTEL_LOGS_EXPORTER: "otlp"
+    
+    # OTLP endpoint configuration
+    OTEL_EXPORTER_OTLP_ENDPOINT: "http://opentelemetry-collector.observability.svc.cluster.local:4318"
+    OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+    
+    # Prometheus exporter for direct scraping
     OTEL_EXPORTER_PROMETHEUS_PORT: "9464"
+    OTEL_EXPORTER_PROMETHEUS_HOST: "0.0.0.0"
+    
+    # Service identification
     OTEL_SERVICE_NAME: '{{ include "helm.fullname" . }}'
-    OTEL_RESOURCE_ATTRIBUTES: "service.namespace={{ .Release.Namespace }}"
+    OTEL_RESOURCE_ATTRIBUTES: "service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }}"
+    
+    # Optional: Configure batch processing
+    OTEL_BSP_SCHEDULE_DELAY: "5000"
+    OTEL_BSP_MAX_QUEUE_SIZE: "2048"
+    OTEL_BSP_MAX_EXPORT_BATCH_SIZE: "512"
 
 livenessProbe:
   enabled: true
@@ -76,14 +94,16 @@ startupProbe:
 
 serviceMonitor:
   enabled: true
-  labels: {}
+  labels: 
+    prometheus: kube-prometheus  # Add appropriate labels for your Prometheus operator
   endpoints:
+    # Scrape Spring Boot Actuator metrics
     - port: http-management
       interval: 15s
       scrapeTimeout: 10s
       path: /actuator/prometheus
+    # Scrape OpenTelemetry metrics directly from the app
     - port: otel-metrics
       interval: 15s
       scrapeTimeout: 10s
       path: /metrics
-
