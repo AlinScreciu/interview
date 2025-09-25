@@ -60,7 +60,7 @@ serviceMonitor:
   enabled: true
   labels: {}
   endpoints:
-    - port: 8181
+    - port: http-management
       interval: 15s
       scrapeTimeout: 10s
       path: /actuator/prometheus
