@@ -178,7 +178,6 @@ service:
   # -- Configuration for a separate management service.
   # This exposes the management port on its own service.
   management:
-    enabled: false
     port: 8181
     type: ClusterIP
 
