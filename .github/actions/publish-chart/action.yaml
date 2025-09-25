@@ -1,5 +1,5 @@
 name: "Publish Helm Chart Action"
-description: "Packages and publishes a Helm chart to ChartMuseum."
+description: "Packages, publishes a Helm chart to ChartMuseum, and uploads it as a build artifact."
 
 inputs:
   chart-path:
@@ -11,6 +11,10 @@ inputs:
   app-version:
     description: "The full semantic version of the application (e.g., 1.0.1+20250923.abc)."
     required: true
+  artifact-name:
+    description: "Name for the uploaded Helm chart artifact."
+    required: false
+    default: 'helm-chart'
 
 outputs:
   packaged_chart_name:
@@ -68,3 +72,18 @@ runs:
     - name: Push chart using helm-push
       shell: bash
       run: helm cm-push ${{ steps.package_chart.outputs.packaged_chart }} ${{ inputs.chartmuseum-url }}
+
+    - name: Generate Checksum
+      id: checksum
+      shell: bash
+      run: |
+        sha256sum ${{ steps.package_chart.outputs.packaged_chart }} > ${{ steps.package_chart.outputs.packaged_chart }}.sha256
+        echo "checksum_file=${{ steps.package_chart.outputs.packaged_chart }}.sha256" >> $GITHUB_OUTPUT
+
+    - name: Upload Helm Chart Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: |
+          ${{ steps.package_chart.outputs.packaged_chart }}
+          ${{ steps.checksum.outputs.checksum_file }}
