@@ -55,7 +55,7 @@ jobs:
       repo-name: ${{ github.repository }}
       run-id: ${{ needs.retrieve-run-id.outputs.ci-run-id }}
     secrets:
-      GPG_KEY: ${{ secrets.GPG_KEY }}
+      GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
       KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_STAGING }}
       REPO_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
@@ -75,6 +75,6 @@ jobs:
       repo-name: ${{ github.repository }}
       run-id: ${{ needs.retrieve-run-id.outputs.ci-run-id }}
     secrets:
-      GPG_KEY: ${{ secrets.GPG_KEY }}
+      GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
       KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
       REPO_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
