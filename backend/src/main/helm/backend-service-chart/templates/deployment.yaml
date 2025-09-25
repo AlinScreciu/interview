@@ -94,7 +94,7 @@ spec:
             - name: service-port
               containerPort: {{ .Values.app.port }}
               protocol: TCP
-            - name: mgr-port
+            - name: http-management
               containerPort: {{ .Values.app.mgrPort }}
               protocol: TCP
             {{- if .Values.jmx.enabled }}
