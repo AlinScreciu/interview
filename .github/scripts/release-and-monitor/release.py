@@ -191,8 +191,14 @@ def display_diff_and_values(
     # 1. Display the user-supplied values with secrets masked
     masked_user_values = redact_values_by_path(user_supplied_values, secret_paths)
     user_values_yaml = yaml.dump(masked_user_values, indent=2, default_flow_style=False)
-    syntax = Syntax(user_values_yaml, "yaml", theme="monokai", line_numbers=True)
-    console.print(Panel(syntax, title="[bold yellow]📝 User-Supplied Values (Secrets Masked)[/bold yellow]", border_style="yellow"))
+
+    code_width = None
+    if not sys.stdout.isatty or console._force_terminal:
+        code_width = 120
+    syntax = Syntax(user_values_yaml, "yaml", code_width, word_wrap=True, theme="monokai", line_numbers=True)
+
+
+    console.print(Panel(syntax,  title="[bold yellow]📝 User-Supplied Values (Secrets Masked)[/bold yellow]", border_style="yellow"))
 
     # 2. Prepare the diff
     shadow_new_values = redact_values_by_path(user_supplied_values, secret_paths)
