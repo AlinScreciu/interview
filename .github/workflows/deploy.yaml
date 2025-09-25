@@ -57,7 +57,7 @@ jobs:
     secrets:
       GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
       KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-      REPO_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO_ACCESS_TOKEN: ${{ secrets.GH_PAT }}
       
   # Deploys to the production environment only after a successful staging deployment.
   deploy-to-production:
@@ -78,4 +78,4 @@ jobs:
     secrets:
       GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
       KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-      REPO_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO_ACCESS_TOKEN: ${{ secrets.GH_PAT }}
