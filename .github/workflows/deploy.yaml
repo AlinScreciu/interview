@@ -12,9 +12,7 @@ on:
   workflow_run:
     workflows: ["Tekmetric Backend CI"]
     types: [completed]
-    # Only run on successful CI builds.
-    if: |
-      github.event.workflow_run.conclusion == 'success'
+
 
 # Prevents multiple deployments from the same branch/PR group.
 concurrency:
@@ -27,6 +25,7 @@ jobs:
   retrieve-run-id:
     runs-on: ubuntu-latest
     name: Retrieve CI Run ID
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     outputs:
       ci-run-id: ${{ steps.get-run-id.outputs.id }}
     steps:
@@ -41,6 +40,7 @@ jobs:
 
   # Deploys to the staging environment by calling the reusable workflow.
   deploy-to-staging:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     name: Deploy to Staging
     needs: retrieve-run-id
     permissions:
@@ -61,6 +61,7 @@ jobs:
       
   # Deploys to the production environment only after a successful staging deployment.
   deploy-to-production:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     name: Deploy to Production
     needs: [deploy-to-staging, retrieve-run-id]
     permissions:
