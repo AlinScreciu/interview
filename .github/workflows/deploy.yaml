@@ -1,6 +1,5 @@
 name: Tekmetric Backend CD
 
-# This workflow is triggered manually and automatically after a successful CI run.
 on:
   workflow_dispatch:
     inputs:
@@ -12,21 +11,18 @@ on:
   workflow_run:
     workflows: ["Tekmetric Backend CI"]
     types: [completed]
-    # Only run on successful CI builds.
-    if: |
-      github.event.workflow_run.conclusion == 'success'
 
-# Prevents multiple deployments from the same branch/PR group.
 concurrency:
-  group: deploy-${{ github.event.workflow_run.head_branch || github.ref }}
+  group: deploy-${{ github.event.workflow_run.id || github.event.inputs.ci_run_id || github.run_id }}
   cancel-in-progress: false
 
 jobs:
-  # This job retrieves the necessary artifacts and passes them to the deployment jobs.
-  # We use a separate job to ensure we have all the required information before calling the reusable workflow.
   retrieve-run-id:
     runs-on: ubuntu-latest
     name: Retrieve CI Run ID
+    if: |
+      github.event_name == 'workflow_dispatch' || 
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     outputs:
       ci-run-id: ${{ steps.get-run-id.outputs.id }}
     steps:
@@ -43,10 +39,12 @@ jobs:
             echo "id=${{ github.event.inputs.ci_run_id }}" >> $GITHUB_OUTPUT
           fi
           
-  # Deploys to the staging environment by calling the reusable workflow.
   deploy-to-staging:
     name: Deploy to Staging
     needs: retrieve-run-id
+    if: |
+      github.event_name == 'workflow_dispatch' || 
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     permissions:
       contents: read
       actions: write
@@ -63,10 +61,12 @@ jobs:
       KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
       REPO_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-  # Deploys to the production environment only after a successful staging deployment.
   deploy-to-production:
     name: Deploy to Production
     needs: [deploy-to-staging, retrieve-run-id]
+    if: |
+      github.event_name == 'workflow_dispatch' || 
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     permissions:
       contents: read
       actions: write
