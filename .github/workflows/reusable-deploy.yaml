@@ -145,7 +145,7 @@ jobs:
           echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > "$HOME/.kube/config"
           echo "${{ secrets.GPG_SECRET_KEY }}" | base64 --decode | gpg --batch --import
         env:
-          KUBECONFIG: "$HOME/.kube/config"
+          KUBECONFIG: "${{ runner.temp }}/kubeconfig"
 
       - name: Download Plan Artifacts
         uses: actions/download-artifact@v4
@@ -156,7 +156,7 @@ jobs:
       - name: Deploy with Helm using release.py
         shell: bash
         env:
-          KUBECONFIG: "$HOME/.kube/config"
+          KUBECONFIG: "${{ runner.temp }}/kubeconfig"
         run: |
           CHART_PACKAGE=$(ls *.tgz)
           echo "Deploying Helm chart..."
