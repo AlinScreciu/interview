@@ -12,7 +12,9 @@ on:
   workflow_run:
     workflows: ["Tekmetric Backend CI"]
     types: [completed]
-
+    # Only run on successful CI builds.
+    if: |
+      github.event.workflow_run.conclusion == 'success'
 
 # Prevents multiple deployments from the same branch/PR group.
 concurrency:
@@ -25,22 +27,24 @@ jobs:
   retrieve-run-id:
     runs-on: ubuntu-latest
     name: Retrieve CI Run ID
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     outputs:
       ci-run-id: ${{ steps.get-run-id.outputs.id }}
     steps:
-      - name: Get CI Run ID for workflow_run trigger
+      - name: Get CI Run ID
         id: get-run-id
-        if: github.event_name == 'workflow_run'
-        run: echo "id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
-      
-      - name: Get CI Run ID for workflow_dispatch trigger
-        if: github.event_name == 'workflow_dispatch'
-        run: echo "id=${{ github.event.inputs.ci_run_id }}" >> $GITHUB_OUTPUT
-
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_run" ]; then
+            echo "id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ -z "${{ github.event.inputs.ci_run_id }}" ]; then
+              echo "::error::Manual workflow dispatch requires the 'ci_run_id' input."
+              exit 1
+            fi
+            echo "id=${{ github.event.inputs.ci_run_id }}" >> $GITHUB_OUTPUT
+          fi
+          
   # Deploys to the staging environment by calling the reusable workflow.
   deploy-to-staging:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     name: Deploy to Staging
     needs: retrieve-run-id
     permissions:
@@ -56,11 +60,11 @@ jobs:
       run-id: ${{ needs.retrieve-run-id.outputs.ci-run-id }}
     secrets:
       GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
-      KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-      REPO_ACCESS_TOKEN: ${{ secrets.GH_PAT }}
+      KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_STAGING }}
+      REPO_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
   # Deploys to the production environment only after a successful staging deployment.
   deploy-to-production:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     name: Deploy to Production
     needs: [deploy-to-staging, retrieve-run-id]
     permissions:
@@ -76,5 +80,5 @@ jobs:
       run-id: ${{ needs.retrieve-run-id.outputs.ci-run-id }}
     secrets:
       GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
-      KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-      REPO_ACCESS_TOKEN: ${{ secrets.GH_PAT }}
+      KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
+      REPO_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
