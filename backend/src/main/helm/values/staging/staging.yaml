@@ -31,7 +31,7 @@ apm:
   enabled: true
   initContainer:
     repository: "ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-java"
-    tag: "2.20.1" # Consider pinning to a specific version in production
+    tag: "2.20.1"
     pullPolicy: "IfNotPresent"
   copyCommand:
     - "sh"
@@ -95,7 +95,7 @@ startupProbe:
 serviceMonitor:
   enabled: true
   labels: 
-    prometheus: kube-prometheus  # Add appropriate labels for your Prometheus operator
+    prometheus: prometheus-stack 
   endpoints:
     # Scrape Spring Boot Actuator metrics
     - port: http-management
